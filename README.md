@@ -48,4 +48,4 @@ A comprehensive, cross-platform Flutter application for the IIITNR QR-based Atte
 - **Biometric Support**: Uses `local_auth` for secure login verification.
 
 ---
-© 2024 IIITNR Attendance Project Team
+This project is still in progress
