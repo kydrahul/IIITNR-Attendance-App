@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'config/firebase_options.dart';
 import 'constants/colors.dart';
-import 'screens/login_screen.dart';
-import 'screens/profile_setup_screen.dart';
-import 'screens/qr_scanner_screen.dart';
-import 'screens/attendance_history_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/not_found_screen.dart';
+import 'screens/common/login_screen.dart';
+import 'screens/student/profile_setup_screen.dart';
+import 'screens/student/qr_scanner_screen.dart';
+import 'screens/student/attendance_history_screen.dart';
+import 'screens/student/home_screen.dart';
+import 'screens/common/not_found_screen.dart';
 import 'services/auth_service.dart';
 import 'services/biometric_service.dart';
-import 'screens/splash_screen.dart';
+import 'screens/common/splash_screen.dart';
+import 'screens/faculty/faculty_main_scaffold.dart';
+import 'utils/global_error_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  GlobalErrorHandler.initialize();
 
   try {
     await Firebase.initializeApp(
@@ -85,34 +90,40 @@ class _StudentAppState extends State<StudentApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'IIITNR Attendance',
-      navigatorKey: navigatorKey, // Add this
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: AppColors.background,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.blue600,
-          primary: AppColors.blue600,
-          surface: AppColors.background,
+    return MultiProvider(
+      providers: [
+        Provider.value(value: null), // Placeholder
+      ],
+      child: MaterialApp(
+        title: 'IIITNR Attendance',
+        navigatorKey: navigatorKey,
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          scaffoldBackgroundColor: AppColors.background,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: AppColors.blue600,
+            primary: AppColors.blue600,
+            surface: AppColors.background,
+          ),
+          textTheme: GoogleFonts.robotoTextTheme(),
         ),
-        textTheme: GoogleFonts.robotoTextTheme(),
+        initialRoute: widget.initialRoute,
+        routes: {
+          '/': (context) => const SplashScreen(),
+          '/login': (context) => const LoginScreen(),
+          '/profile-setup': (context) => const ProfileSetupScreen(),
+          '/qr-scanner': (context) => const QRScannerScreen(),
+          '/attendance-history': (context) => const AttendanceHistoryScreen(),
+          '/home': (context) => const HomeScreen(),
+          '/faculty-home': (context) => const FacultyMainScaffold(),
+        },
+        onUnknownRoute: (settings) {
+          return MaterialPageRoute(
+            builder: (context) => const NotFoundScreen(),
+          );
+        },
       ),
-      initialRoute: widget.initialRoute,
-      routes: {
-        '/': (context) => const SplashScreen(),
-        '/login': (context) => const LoginScreen(),
-        '/profile-setup': (context) => const ProfileSetupScreen(),
-        '/qr-scanner': (context) => const QRScannerScreen(),
-        '/attendance-history': (context) => const AttendanceHistoryScreen(),
-        '/home': (context) => const HomeScreen(),
-      },
-      onUnknownRoute: (settings) {
-        return MaterialPageRoute(
-          builder: (context) => const NotFoundScreen(),
-        );
-      },
     );
   }
 }

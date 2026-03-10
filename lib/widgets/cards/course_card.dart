@@ -40,13 +40,18 @@ class CourseCard extends StatelessWidget {
                   children: [
                     Text(course.name, style: AppTextStyles.h4),
                     const SizedBox(height: 2),
-                    Text(course.faculty, style: AppTextStyles.bodySmall.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w500)),
+                    Text(course.faculty,
+                        style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.gray500,
+                            fontWeight: FontWeight.w500)),
                   ],
                 ),
                 Text(
                   "${course.attendance}%",
                   style: AppTextStyles.h2.copyWith(
-                    color: course.attendance > 75 ? AppColors.green600 : AppColors.red600,
+                    color: course.attendance > 75
+                        ? AppColors.green600
+                        : AppColors.red600,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -60,11 +65,18 @@ class CourseCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Expanded(child: _buildStat("CREDITS", course.credits.toString(), align: CrossAxisAlignment.center)),
+                  Expanded(
+                      child: _buildStat("CREDITS", course.credits.toString(),
+                          align: CrossAxisAlignment.center)),
                   Container(width: 1, height: 24, color: AppColors.gray100),
-                  Expanded(child: _buildStat("TOTAL", course.totalClasses.toString(), align: CrossAxisAlignment.center)),
+                  Expanded(
+                      child: _buildStat("TOTAL", course.totalClasses.toString(),
+                          align: CrossAxisAlignment.center)),
                   Container(width: 1, height: 24, color: AppColors.gray100),
-                  Expanded(child: _buildStat("MISSED", course.missed.toString(), valueColor: AppColors.red500, align: CrossAxisAlignment.center)),
+                  Expanded(
+                      child: _buildStat("MISSED", course.missed.toString(),
+                          valueColor: AppColors.red500,
+                          align: CrossAxisAlignment.center)),
                 ],
               ),
             ),
@@ -74,7 +86,9 @@ class CourseCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStat(String label, String value, {Color? valueColor, CrossAxisAlignment align = CrossAxisAlignment.start}) {
+  Widget _buildStat(String label, String value,
+      {Color? valueColor,
+      CrossAxisAlignment align = CrossAxisAlignment.start}) {
     return Column(
       crossAxisAlignment: align,
       children: [

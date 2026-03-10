@@ -1,56 +1,23 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../config/app_config.dart';
-import 'auth_service.dart';
-import 'device_service.dart';
+import '../core/network/api_client.dart';
 
 class ApiService {
-  final AuthService _authService = AuthService();
-  final DeviceService _deviceService = DeviceService();
-
-  Future<Map<String, String>> _getHeaders() async {
-    final token = await _authService.getToken();
-    final deviceId = await _deviceService.getDeviceId();
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ${token ?? ''}',
-      'x-device-id': deviceId,
-    };
-  }
+  final ApiClient _apiClient = ApiClient();
 
   // Get Student Profile
   Future<Map<String, dynamic>> getProfile(
       {bool checkProfileExists = false}) async {
+    final endpoint = checkProfileExists
+        ? '/student/profile?nocache=true'
+        : '/student/profile';
     try {
-      final headers = await _getHeaders();
-      // Add nocache query param if checking for profile existence
-      final url = checkProfileExists
-          ? '${AppConfig.baseUrl}/student/profile?nocache=true'
-          : '${AppConfig.baseUrl}/student/profile';
-
-      final response = await http
-          .get(
-            Uri.parse(url),
-            headers: headers,
-          )
-          .timeout(const Duration(seconds: 30));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['student'];
+      final data = await _apiClient.get(endpoint);
+      return data['student'];
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) {
+        throw Exception('Profile not found');
       } else {
-        if (response.statusCode == 404) {
-          throw Exception('Profile not found');
-        } else {
-          // Propagate error message for UI to show (and NOT redirect to setup)
-          final errorData = json.decode(response.body);
-          throw Exception(
-              'Server Error ${response.statusCode}: ${errorData['details'] ?? errorData['error'] ?? response.body}');
-        }
+        throw Exception('Server Error ${e.statusCode}: ${e.message}');
       }
-    } catch (e) {
-      print('Error in getProfile: $e');
-      rethrow;
     }
   }
 
@@ -60,26 +27,14 @@ class ApiService {
     required double longitude,
     double? accuracy,
   }) async {
-    final response = await http
-        .post(
-          Uri.parse('${AppConfig.baseUrl}/student/verify-location'),
-          headers: await _getHeaders(),
-          body: jsonEncode({
-            'latitude': latitude,
-            'longitude': longitude,
-            'accuracy': accuracy,
-          }),
-        )
-        .timeout(const Duration(seconds: 30));
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else if (response.statusCode == 403) {
-      final error = jsonDecode(response.body);
-      throw Exception(error['error'] ?? 'Location verification failed');
-    } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['error'] ?? 'Failed to verify location');
+    try {
+      return await _apiClient.post('/student/verify-location', body: {
+        'latitude': latitude,
+        'longitude': longitude,
+        'accuracy': accuracy,
+      });
+    } on ApiException catch (e) {
+      throw Exception(e.message);
     }
   }
 
@@ -90,41 +45,27 @@ class ApiService {
     required String department,
     required int passingYear,
   }) async {
-    final deviceId = await _deviceService.getDeviceId();
-
-    final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/student/profile'),
-      headers: await _getHeaders(),
-      body: jsonEncode({
+    try {
+      return await _apiClient.post('/student/profile', body: {
         'name': name,
         'rollNo': rollNo,
         'department': department,
         'passingYear': passingYear,
-        'deviceId': deviceId,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else if (response.statusCode == 403) {
-      final error = jsonDecode(response.body);
-      throw DeviceMismatchException(error['message'] ?? 'Device mismatch');
-    } else {
-      throw Exception('Failed to create profile: ${response.body}');
+      });
+    } on ApiException catch (e) {
+      if (e.statusCode == 403) {
+        throw DeviceMismatchException(e.message);
+      }
+      throw Exception('Failed to create profile: ${e.message}');
     }
   }
 
   // Get Student Dashboard
   Future<Map<String, dynamic>> getDashboard() async {
-    final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/student/dashboard'),
-      headers: await _getHeaders(),
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to fetch dashboard: ${response.body}');
+    try {
+      return await _apiClient.get('/student/dashboard');
+    } on ApiException catch (e) {
+      throw Exception('Failed to fetch dashboard: ${e.message}');
     }
   }
 
@@ -135,88 +76,59 @@ class ApiService {
     required double longitude,
     double? accuracy,
   }) async {
-    final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/student/scan-qr'),
-      headers: await _getHeaders(),
-      body: jsonEncode({
+    try {
+      return await _apiClient.post('/student/scan-qr', body: {
         'qrData': qrData,
         'latitude': latitude,
         'longitude': longitude,
         'accuracy': accuracy,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['error'] ?? 'Failed to mark attendance');
+      });
+    } on ApiException catch (e) {
+      throw Exception(e.message);
     }
   }
 
   // Join Course
   Future<Map<String, dynamic>> joinCourse(String joinCode) async {
-    final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/student/join-course'),
-      headers: await _getHeaders(),
-      body: jsonEncode({'joinCode': joinCode}),
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['error'] ?? 'Failed to join course');
+    try {
+      return await _apiClient
+          .post('/student/join-course', body: {'joinCode': joinCode});
+    } on ApiException catch (e) {
+      throw Exception(e.message);
     }
   }
 
   // Get Enrolled Courses
   Future<List<dynamic>> getCourses() async {
-    final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/student/courses'),
-      headers: await _getHeaders(),
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+    try {
+      final data = await _apiClient.get('/student/courses');
       return data['courses'] ?? [];
-    } else {
-      throw Exception('Failed to fetch courses');
+    } on ApiException catch (e) {
+      throw Exception('Failed to fetch courses: ${e.message}');
     }
   }
 
   // Get Timetable
   Future<Map<String, dynamic>> getTimetable() async {
-    final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/student/timetable'),
-      headers: await _getHeaders(),
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+    try {
+      final data = await _apiClient.get('/student/timetable');
       return data['timetable'] ?? {};
-    } else {
-      throw Exception('Failed to fetch timetable');
+    } on ApiException catch (e) {
+      throw Exception('Failed to fetch timetable: ${e.message}');
     }
   }
 
   // Get Attendance History
   Future<List<dynamic>> getAttendanceHistory({String? courseId}) async {
-    var url = '${AppConfig.baseUrl}/student/attendance-history';
+    String endpoint = '/student/attendance-history';
     if (courseId != null) {
-      url += '?courseId=$courseId';
+      endpoint += '?courseId=$courseId';
     }
-
-    final response = await http.get(
-      Uri.parse(url),
-      headers: await _getHeaders(),
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+    try {
+      final data = await _apiClient.get(endpoint);
       return data['attendanceRecords'] ?? [];
-    } else {
-      throw Exception('Failed to fetch attendance history');
+    } on ApiException catch (e) {
+      throw Exception('Failed to fetch attendance history: ${e.message}');
     }
   }
 }

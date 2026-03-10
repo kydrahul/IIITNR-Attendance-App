@@ -4,13 +4,13 @@ import 'colors.dart';
 
 class AppTextStyles {
   static TextStyle get header => GoogleFonts.montserrat(
-    fontWeight: FontWeight.w700,
-    color: AppColors.gray800,
-  );
+        fontWeight: FontWeight.w700,
+        color: AppColors.gray800,
+      );
 
   static TextStyle get body => GoogleFonts.roboto(
-    color: AppColors.gray700,
-  );
+        color: AppColors.gray700,
+      );
 
   // Specific styles
   static TextStyle get h1 => header.copyWith(fontSize: 24);
@@ -21,11 +21,11 @@ class AppTextStyles {
   static TextStyle get bodySmall => body.copyWith(fontSize: 12);
   static TextStyle get bodyMedium => body.copyWith(fontSize: 14);
   static TextStyle get bodyLarge => body.copyWith(fontSize: 16);
-  
+
   static TextStyle get label => GoogleFonts.roboto(
-    fontSize: 10,
-    fontWeight: FontWeight.bold,
-    color: AppColors.gray400,
-    letterSpacing: 0.5,
-  );
+        fontSize: 10,
+        fontWeight: FontWeight.bold,
+        color: AppColors.gray400,
+        letterSpacing: 0.5,
+      );
 }

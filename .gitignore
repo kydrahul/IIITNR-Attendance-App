@@ -38,4 +38,12 @@ app.*.map.json
 /android/app/release
 
 # Environment variables
-.env
+.env*
+
+# Secrets & Android
+.gradle/
+local.properties
+*.jks
+*.keystore
+key.properties
+

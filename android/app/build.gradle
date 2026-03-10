@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "in.ac.iiitnr.student_app"
-    compileSdk = 34
+    compileSdk = 35
     ndkVersion = "25.1.8937393"
 
     compileOptions {

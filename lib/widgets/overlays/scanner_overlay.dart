@@ -50,7 +50,7 @@ class _ScannerOverlayState extends State<ScannerOverlay> {
                     color: Colors.black.withOpacity(0.7),
                     colorBlendMode: BlendMode.darken,
                   ),
-                  
+
                   // Close Button
                   Positioned(
                     top: 48,
@@ -63,7 +63,8 @@ class _ScannerOverlayState extends State<ScannerOverlay> {
                           color: Colors.black.withOpacity(0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(LucideIcons.xCircle, color: Colors.white, size: 32),
+                        child: const Icon(LucideIcons.xCircle,
+                            color: Colors.white, size: 32),
                       ),
                     ),
                   ),
@@ -105,7 +106,9 @@ class _ScannerOverlayState extends State<ScannerOverlay> {
               Center(
                 child: Text(
                   "Align QR Code",
-                  style: AppTextStyles.bodyMedium.copyWith(color: Colors.white.withOpacity(0.7), fontWeight: FontWeight.bold),
+                  style: AppTextStyles.bodyMedium.copyWith(
+                      color: Colors.white.withOpacity(0.7),
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -127,7 +130,10 @@ class _ScannerOverlayState extends State<ScannerOverlay> {
         const SizedBox(height: 24),
         TextButton(
           onPressed: widget.onClose,
-          child: Text("Cancel", style: AppTextStyles.bodyMedium.copyWith(color: Colors.white.withOpacity(0.6), fontWeight: FontWeight.bold)),
+          child: Text("Cancel",
+              style: AppTextStyles.bodyMedium.copyWith(
+                  color: Colors.white.withOpacity(0.6),
+                  fontWeight: FontWeight.bold)),
         ),
       ],
     );
@@ -148,14 +154,17 @@ class _ScannerOverlayState extends State<ScannerOverlay> {
             const SizedBox(
               width: 64,
               height: 64,
-              child: CircularProgressIndicator(strokeWidth: 4, color: AppColors.blue600),
+              child: CircularProgressIndicator(
+                  strokeWidth: 4, color: AppColors.blue600),
             ),
             const SizedBox(height: 24),
-            Text("Verifying Location...", style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.bold)),
+            Text("Verifying Location...",
+                style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(
               "Please stay in the classroom for attendance verification.",
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.gray500),
+              style:
+                  AppTextStyles.bodyMedium.copyWith(color: AppColors.gray500),
               textAlign: TextAlign.center,
             ),
           ],
@@ -183,14 +192,17 @@ class _ScannerOverlayState extends State<ScannerOverlay> {
                 color: AppColors.green100,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(LucideIcons.checkCircle2, color: AppColors.green600, size: 40),
+              child: const Icon(LucideIcons.checkCircle2,
+                  color: AppColors.green600, size: 40),
             ),
             const SizedBox(height: 16),
-            Text("Attendance Marked!", style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.bold)),
+            Text("Attendance Marked!",
+                style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(
               "You are all set for this session.",
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.gray500),
+              style:
+                  AppTextStyles.bodyMedium.copyWith(color: AppColors.gray500),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -202,7 +214,8 @@ class _ScannerOverlayState extends State<ScannerOverlay> {
                   backgroundColor: AppColors.black,
                   foregroundColor: AppColors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 child: const Text("Done"),
               ),
@@ -232,14 +245,17 @@ class _ScannerOverlayState extends State<ScannerOverlay> {
                 color: AppColors.red100,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(LucideIcons.mapPin, color: AppColors.red600, size: 40),
+              child: const Icon(LucideIcons.mapPin,
+                  color: AppColors.red600, size: 40),
             ),
             const SizedBox(height: 16),
-            Text("Location Failed", style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.bold)),
+            Text("Location Failed",
+                style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(
               "You appear to be outside the class area. Please try scanning again.",
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.gray500),
+              style:
+                  AppTextStyles.bodyMedium.copyWith(color: AppColors.gray500),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -251,7 +267,8 @@ class _ScannerOverlayState extends State<ScannerOverlay> {
                   backgroundColor: AppColors.gray100,
                   foregroundColor: AppColors.gray900,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 child: const Text("Close & Retry"),
               ),

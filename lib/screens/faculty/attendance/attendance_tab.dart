@@ -1,0 +1,832 @@
+import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../../../constants/faculty/faculty_colors.dart';
+import '../../../constants/faculty/faculty_text_styles.dart';
+import '../../../models/faculty/faculty_models.dart';
+import '../../../services/faculty/faculty_api_service.dart';
+import '../courses/start_session_screen.dart';
+
+class FacultyAttendanceTab extends StatefulWidget {
+  final Course? initialCourse;
+
+  const FacultyAttendanceTab({super.key, this.initialCourse});
+
+  @override
+  State<FacultyAttendanceTab> createState() => _FacultyAttendanceTabState();
+}
+
+class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
+    with SingleTickerProviderStateMixin {
+  final FacultyApiService _apiService = FacultyApiService();
+  late TabController _tabController;
+
+  Course? _selectedCourse;
+  List<Course> _courses = [];
+
+  bool _isLoadingGrid = false;
+  List<dynamic> _gridSessions = [];
+  List<dynamic> _gridStudents = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _selectedCourse = widget.initialCourse;
+    _loadCourses();
+    if (_selectedCourse != null) {
+      _loadAttendanceGrid(_selectedCourse!.id);
+    }
+  }
+
+  @override
+  void didUpdateWidget(FacultyAttendanceTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialCourse != null &&
+        widget.initialCourse != _selectedCourse) {
+      setState(() {
+        _selectedCourse = widget.initialCourse;
+      });
+      _loadAttendanceGrid(widget.initialCourse!.id);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadCourses() async {
+    try {
+      final courses = await _apiService.listCourses();
+      if (courses.isEmpty) {
+        // Fallback mock courses for testing/visibility if backend is empty
+        courses.addAll([
+          Course(
+            id: 'mock_1',
+            code: 'CS301',
+            name: 'Data Structures & Algorithms',
+            section: 'A',
+            enrolledCount: 68,
+            timetable: [
+              TimetableSlot(
+                  day: _getCurrentDayString(), time: '10:00 AM', type: 'theory')
+            ],
+            joinCode: 'CS301-A',
+            department: 'CSE',
+            academicYear: '2023-24',
+            credits: 4,
+            semester: '3',
+            session: 'Autumn 2023',
+          ),
+          Course(
+            id: 'mock_2',
+            code: 'AI201',
+            name: 'Intro to AI',
+            section: 'A',
+            enrolledCount: 80,
+            timetable: [
+              TimetableSlot(
+                  day: _getCurrentDayString(), time: '02:00 PM', type: 'theory')
+            ],
+            joinCode: 'AI201-A',
+            department: 'DSAI',
+            academicYear: '2023-24',
+            credits: 3,
+            semester: '1',
+            session: 'Autumn 2023',
+          ),
+        ]);
+      }
+      if (mounted) {
+        setState(() => _courses = courses);
+      }
+    } catch (e) {
+      debugPrint('Error loading courses: $e');
+      if (mounted) {
+        // Fallback completely if API fails
+        setState(() => _courses = [
+              Course(
+                id: 'mock_1',
+                code: 'CS301',
+                name: 'Data Structures & Algorithms',
+                section: 'A',
+                enrolledCount: 68,
+                timetable: [
+                  TimetableSlot(
+                      day: _getCurrentDayString(),
+                      time: '10:00 AM',
+                      type: 'theory')
+                ],
+                joinCode: 'CS301-A',
+                department: 'CSE',
+                academicYear: '2023-24',
+                credits: 4,
+                semester: '3',
+                session: 'Autumn 2023',
+              ),
+            ]);
+      }
+    }
+  }
+
+  Future<void> _loadAttendanceGrid(String courseId) async {
+    if (!mounted) return;
+    setState(() => _isLoadingGrid = true);
+    try {
+      final response = await _apiService.getCourseAttendanceGrid(courseId);
+      if (mounted) {
+        setState(() {
+          _gridSessions = response['sessions'] ?? [];
+          _gridStudents = response['students'] ?? [];
+          _isLoadingGrid = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading attendance grid: $e');
+      if (mounted) {
+        setState(() => _isLoadingGrid = false);
+      }
+    }
+  }
+
+  void _onCourseChanged(Course? course) {
+    if (course == null) return;
+    setState(() {
+      _selectedCourse = course;
+    });
+    _loadAttendanceGrid(course.id);
+  }
+
+  void _navigateToStartSession() {
+    if (_selectedCourse == null) return;
+
+    final courseMap = {
+      'id': _selectedCourse!.id,
+      'code': _selectedCourse!.code,
+      'name': _selectedCourse!.name,
+      'semester': _selectedCourse!.semester,
+      'students': _gridStudents,
+    };
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StartSessionScreen(course: courseMap),
+      ),
+    ).then((_) {
+      // Reload history on return in case new session was made
+      if (_selectedCourse != null) {
+        _loadAttendanceGrid(_selectedCourse!.id);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: FacultyColors.background,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(24.0).copyWith(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (_selectedCourse != null) ...[
+                          IconButton(
+                            icon: const Icon(LucideIcons.arrowLeft,
+                                color: FacultyColors.gray900),
+                            padding: const EdgeInsets.only(right: 16),
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              setState(() {
+                                _selectedCourse = null;
+                              });
+                            },
+                          ),
+                        ],
+                        Text('Attendance Hub',
+                            style: FacultyTextStyles.h1
+                                .copyWith(color: FacultyColors.gray900)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                        _selectedCourse != null
+                            ? 'Manage sessions for this course'
+                            : 'Select a course to start a QR session',
+                        style: FacultyTextStyles.bodyMedium.copyWith(
+                          color: FacultyColors.gray500,
+                          fontWeight: FontWeight.w500,
+                        )),
+                    const SizedBox(height: 24),
+                    _buildCourseSelector(),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _selectedCourse == null
+                    ? _buildDisabledState()
+                    : _buildCourseDetailsView(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCourseSelector() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Autocomplete<Course>(
+          key: ValueKey(_selectedCourse?.id),
+          initialValue: _selectedCourse != null
+              ? TextEditingValue(
+                  text: [
+                  if (_selectedCourse!.department.isNotEmpty)
+                    _selectedCourse!.department,
+                  if (_selectedCourse!.semester != null &&
+                      _selectedCourse!.semester!.isNotEmpty)
+                    'Sem ${_selectedCourse!.semester}',
+                  _selectedCourse!.name
+                ].join(' - '))
+              : TextEditingValue.empty,
+          optionsBuilder: (TextEditingValue textEditingValue) {
+            if (textEditingValue.text.isEmpty) {
+              return _courses;
+            }
+            return _courses.where((Course option) {
+              final query = textEditingValue.text.toLowerCase();
+              return option.name.toLowerCase().contains(query) ||
+                  option.code.toLowerCase().contains(query);
+            });
+          },
+          displayStringForOption: (Course option) => [
+            if (option.department.isNotEmpty) option.department,
+            if (option.semester != null && option.semester!.isNotEmpty)
+              'Sem ${option.semester}',
+            option.name
+          ].join(' - '),
+          onSelected: _onCourseChanged,
+          fieldViewBuilder: (BuildContext context,
+              TextEditingController textEditingController,
+              FocusNode focusNode,
+              VoidCallback onFieldSubmitted) {
+            if (_selectedCourse == null &&
+                textEditingController.text.isNotEmpty &&
+                !focusNode.hasFocus) {
+              textEditingController.text = '';
+            } else if (_selectedCourse != null && !focusNode.hasFocus) {
+              final expectedText = [
+                if (_selectedCourse!.department.isNotEmpty)
+                  _selectedCourse!.department,
+                if (_selectedCourse!.semester != null &&
+                    _selectedCourse!.semester!.isNotEmpty)
+                  'Sem ${_selectedCourse!.semester}',
+                _selectedCourse!.name
+              ].join(' - ');
+              if (textEditingController.text != expectedText) {
+                textEditingController.text = expectedText;
+              }
+            }
+
+            return TextFormField(
+              controller: textEditingController,
+              focusNode: focusNode,
+              onFieldSubmitted: (String value) {
+                onFieldSubmitted();
+              },
+              decoration: InputDecoration(
+                hintText: 'Search for a course...',
+                hintStyle: FacultyTextStyles.bodyMedium
+                    .copyWith(color: FacultyColors.gray400),
+                prefixIcon: const Icon(LucideIcons.search,
+                    color: FacultyColors.gray400, size: 20),
+                suffixIcon: _selectedCourse != null ||
+                        textEditingController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(LucideIcons.x, size: 20),
+                        color: FacultyColors.gray500,
+                        onPressed: () {
+                          setState(() {
+                            _selectedCourse = null;
+                            textEditingController.clear();
+                          });
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: FacultyColors.white,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: FacultyColors.gray200),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: FacultyColors.primary),
+                ),
+              ),
+              style: FacultyTextStyles.bodyMedium
+                  .copyWith(color: FacultyColors.gray900, fontSize: 16),
+            );
+          },
+          optionsViewBuilder: (BuildContext context,
+              AutocompleteOnSelected<Course> onSelected,
+              Iterable<Course> options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Material(
+                  elevation: 4.0,
+                  shadowColor: Colors.black.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.antiAlias,
+                  color: FacultyColors.white,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth,
+                      maxHeight: 300,
+                    ),
+                    child: ListView.separated(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: options.length,
+                      separatorBuilder: (context, index) => const Divider(
+                          height: 1, color: FacultyColors.gray100),
+                      itemBuilder: (BuildContext context, int index) {
+                        final Course option = options.elementAt(index);
+                        return InkWell(
+                          onTap: () {
+                            onSelected(option);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  [
+                                    if (option.department.isNotEmpty)
+                                      option.department,
+                                    if (option.semester != null &&
+                                        option.semester!.isNotEmpty)
+                                      'Semester ${option.semester}'
+                                  ].join(' - '),
+                                  style: FacultyTextStyles.bodyMedium.copyWith(
+                                      color: FacultyColors.gray900,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  [
+                                    if (option.academicYear.isNotEmpty)
+                                      option.academicYear,
+                                    if (option.session != null &&
+                                        option.session!.isNotEmpty)
+                                      option.session
+                                  ].join(' - '),
+                                  style: FacultyTextStyles.bodySmall
+                                      .copyWith(color: FacultyColors.gray500),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  option.name,
+                                  style: FacultyTextStyles.bodySmall
+                                      .copyWith(color: FacultyColors.gray500),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _getCurrentDayString() {
+    final now = DateTime.now();
+    switch (now.weekday) {
+      case DateTime.monday:
+        return 'Monday';
+      case DateTime.tuesday:
+        return 'Tuesday';
+      case DateTime.wednesday:
+        return 'Wednesday';
+      case DateTime.thursday:
+        return 'Thursday';
+      case DateTime.friday:
+        return 'Friday';
+      case DateTime.saturday:
+        return 'Saturday';
+      case DateTime.sunday:
+        return 'Sunday';
+      default:
+        return 'Monday';
+    }
+  }
+
+  List<Course> _getTodayCourses() {
+    final today = _getCurrentDayString();
+    var todayCourses =
+        _courses.where((c) => c.timetable.any((t) => t.day == today)).toList();
+    if (todayCourses.isEmpty && _courses.isNotEmpty) {
+      // Fallback for testing/visibility if no courses today
+      return [_courses.first];
+    }
+    return todayCourses;
+  }
+
+  Widget _buildDisabledState() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+      children: [
+        _buildQuickPicks(),
+        const SizedBox(height: 32),
+        _buildLastSession(),
+      ],
+    );
+  }
+
+  Widget _buildLastSession() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Today's Last Session",
+            style: FacultyTextStyles.h3.copyWith(color: FacultyColors.gray800)),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: FacultyColors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: FacultyColors.gray100),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: FacultyColors.gray50,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(LucideIcons.history,
+                    size: 32, color: FacultyColors.gray400),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No sessions conducted today',
+                style: FacultyTextStyles.bodyMedium
+                    .copyWith(color: FacultyColors.gray500),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickPicks() {
+    if (_courses.isEmpty) return const SizedBox.shrink();
+
+    final quickPicks = _getTodayCourses().take(2).toList();
+    if (quickPicks.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Today's Classes",
+            style: FacultyTextStyles.h3.copyWith(color: FacultyColors.gray800)),
+        const SizedBox(height: 12),
+        ...quickPicks.map((c) => _buildQuickPickCard(c)),
+      ],
+    );
+  }
+
+  Widget _buildQuickPickCard(Course course) {
+    return GestureDetector(
+      onTap: () => _onCourseChanged(course),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: FacultyColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: FacultyColors.blue100),
+          boxShadow: [
+            BoxShadow(
+              color: FacultyColors.primary.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: FacultyColors.blue50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(LucideIcons.clock,
+                  color: FacultyColors.primary, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    [
+                      if (course.department.isNotEmpty) course.department,
+                      if (course.semester != null &&
+                          course.semester!.isNotEmpty)
+                        'Semester ${course.semester}'
+                    ].join(' - '),
+                    style: FacultyTextStyles.h3
+                        .copyWith(color: FacultyColors.gray900),
+                  ),
+                  Text(
+                    [
+                      if (course.academicYear.isNotEmpty) course.academicYear,
+                      if (course.session != null && course.session!.isNotEmpty)
+                        course.session
+                    ].join(' - '),
+                    style: FacultyTextStyles.bodySmall
+                        .copyWith(color: FacultyColors.gray600),
+                  ),
+                  Text(
+                    course.name,
+                    style: FacultyTextStyles.bodySmall
+                        .copyWith(color: FacultyColors.gray500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: FacultyColors.primary,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('Start Now',
+                  style: FacultyTextStyles.bodySmall.copyWith(
+                      color: FacultyColors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCourseDetailsView() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: _buildStartAction(),
+        ),
+        if (!_isLoadingGrid)
+          TabBar(
+            controller: _tabController,
+            labelColor: FacultyColors.primary,
+            unselectedLabelColor: FacultyColors.gray500,
+            indicatorColor: FacultyColors.primary,
+            indicatorWeight: 3,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+            tabs: const [
+              Tab(text: "Session History"),
+              Tab(text: "Enrolled Students"),
+            ],
+          ),
+        Expanded(
+          child: _isLoadingGrid
+              ? const Center(child: CircularProgressIndicator())
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildHistoryTab(),
+                    _buildStudentsTab(),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStartAction() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: FacultyColors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: FacultyColors.gray200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(LucideIcons.radio,
+                  size: 28, color: FacultyColors.primary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Live Session capabilities available',
+                  style: FacultyTextStyles.h3
+                      .copyWith(color: FacultyColors.gray800),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: _navigateToStartSession,
+              icon: const Icon(LucideIcons.play),
+              label: const Text('Start New QR Session',
+                  style: TextStyle(fontSize: 16)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: FacultyColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryTab() {
+    if (_gridSessions.isEmpty) {
+      return const Center(child: Text("No session history found."));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(24),
+      itemCount: _gridSessions.length,
+      itemBuilder: (context, index) {
+        final session = _gridSessions[index];
+        final String date = session['date'] ?? 'Unknown Date';
+        final String time = session['time'] ?? 'Unknown Time';
+        final String type = session['type'] ?? 'Theory';
+        final num attPerc = session['attendancePercentage'] ?? 0;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: FacultyColors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: FacultyColors.gray100),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(date,
+                      style: FacultyTextStyles.h3.copyWith(fontSize: 18)),
+                  const SizedBox(height: 4),
+                  Text('$time • $type',
+                      style: FacultyTextStyles.bodySmall.copyWith(
+                          color: FacultyColors.gray500,
+                          fontWeight: FontWeight.w500)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('${attPerc.toStringAsFixed(1)}%',
+                      style: FacultyTextStyles.h2.copyWith(
+                          color: attPerc >= 75
+                              ? FacultyColors.green600
+                              : FacultyColors.red600)),
+                  Text('Attendance',
+                      style: FacultyTextStyles.bodySmall
+                          .copyWith(color: FacultyColors.gray500)),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStudentsTab() {
+    if (_gridStudents.isEmpty) {
+      return const Center(child: Text("No students enrolled for this course."));
+    }
+    int totalSessions = _gridSessions.length;
+    return ListView.builder(
+      padding: const EdgeInsets.all(24),
+      itemCount: _gridStudents.length,
+      itemBuilder: (context, index) {
+        final student = _gridStudents[index];
+        final String name = student['name'] ?? 'Unknown';
+        final String roll = student['rollNumber'] ?? 'N/A';
+        final num attPerc = student['attendancePercentage'] ?? 0;
+        final int attended = student['attendedCount'] ?? 0;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: FacultyColors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: FacultyColors.gray100),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name,
+                      style: FacultyTextStyles.h3.copyWith(fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text(roll,
+                      style: FacultyTextStyles.bodySmall.copyWith(
+                          color: FacultyColors.gray500,
+                          fontWeight: FontWeight.w500)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('${attPerc.toStringAsFixed(1)}%',
+                      style: FacultyTextStyles.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: attPerc >= 75
+                              ? FacultyColors.green600
+                              : FacultyColors.red600)),
+                  Text('$attended/$totalSessions Present',
+                      style: FacultyTextStyles.bodySmall
+                          .copyWith(color: FacultyColors.gray500)),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}

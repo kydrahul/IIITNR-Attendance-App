@@ -20,7 +20,11 @@ class IdleItemCard extends StatelessWidget {
               width: 60,
               child: Column(
                 children: [
-                  Text(time, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w500, color: AppColors.gray400, fontSize: 14)),
+                  Text(time,
+                      style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.gray400,
+                          fontSize: 14)),
                 ],
               ),
             ),
@@ -29,7 +33,10 @@ class IdleItemCard extends StatelessWidget {
               child: Container(
                 height: 60,
                 decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.gray200, style: BorderStyle.solid), // Dashed border is hard in basic Flutter, solid is fine for now or use a package
+                  border: Border.all(
+                      color: AppColors.gray200,
+                      style: BorderStyle
+                          .solid), // Dashed border is hard in basic Flutter, solid is fine for now or use a package
                   borderRadius: BorderRadius.circular(16),
                 ),
                 alignment: Alignment.center,
