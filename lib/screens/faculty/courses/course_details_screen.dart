@@ -841,7 +841,7 @@ class _StudentsTabState extends State<_StudentsTab> {
   Widget _buildStudentTile(BuildContext context, dynamic student) {
     final attendance = student['attendancePercentage'] ?? 0;
     final name = student['name'] ?? 'Unknown';
-    final rollNo = student['rollNo'] ?? 'N/A';
+    final rollNo = (student['rollNo'] ?? student['rollNumber'] ?? 'N/A').toString();
     final statusColor = attendance > 85
         ? FacultyColors.green600
         : (attendance > 75 ? FacultyColors.primary : FacultyColors.red600);
