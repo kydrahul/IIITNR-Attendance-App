@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../constants/faculty/faculty_colors.dart';
 import '../../../constants/faculty/faculty_text_styles.dart';
 import '../../../models/faculty/faculty_models.dart' as fm;
+import '../../../utils/faculty/pdf_generator.dart';
 import '../faculty_weekly_timetable_screen.dart';
 import 'session_details_screen.dart';
 import 'student_stats_screen.dart';
@@ -74,6 +75,103 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
     }
   }
 
+  void _showExportDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        String filterTypeSelection = 'All Students';
+        double customThresholdPerc = 75.0;
+        final TextEditingController customController =
+            TextEditingController(text: '75');
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: const Text('Export Attendance',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RadioListTile<String>(
+                    title: const Text('All Students',
+                        style: TextStyle(fontSize: 14)),
+                    value: 'All Students',
+                    groupValue: filterTypeSelection,
+                    onChanged: (val) => setDialogState(() => filterTypeSelection = val!),
+                    activeColor: FacultyColors.primary,
+                  ),
+                  RadioListTile<String>(
+                    title: const Text('Below 75%',
+                        style: TextStyle(fontSize: 14)),
+                    subtitle: const Text('Defaulters list',
+                        style: TextStyle(fontSize: 11)),
+                    value: 'Below 75%',
+                    groupValue: filterTypeSelection,
+                    onChanged: (val) => setDialogState(() => filterTypeSelection = val!),
+                    activeColor: FacultyColors.primary,
+                  ),
+                  RadioListTile<String>(
+                    title: const Text('Custom Threshold',
+                        style: TextStyle(fontSize: 14)),
+                    value: 'Custom',
+                    groupValue: filterTypeSelection,
+                    onChanged: (val) => setDialogState(() => filterTypeSelection = val!),
+                    activeColor: FacultyColors.primary,
+                  ),
+                  if (filterTypeSelection == 'Custom')
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: TextField(
+                        controller: customController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Percentage below...',
+                          suffixText: '%',
+                          isDense: true,
+                        ),
+                        onChanged: (val) {
+                          customThresholdPerc = double.tryParse(val) ?? 75.0;
+                        },
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel',
+                      style: TextStyle(color: FacultyColors.gray500)),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    AttendancePdfGenerator.generateAndShare(
+                      courseName: widget.course['name'] ?? 'Course',
+                      courseCode: widget.course['code'] ?? 'N/A',
+                      students: _students,
+                      filterType: filterTypeSelection,
+                      customThreshold:
+                          filterTypeSelection == 'Custom' ? customThresholdPerc : null,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: FacultyColors.primary,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Export PDF',
+                      style: TextStyle(color: FacultyColors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -133,6 +231,8 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                     widget.course['code']?.toString() ?? '',
                     widget.course['joinCode']?.toString() ?? '',
                   );
+                } else if (value == 'export_attendance') {
+                  _showExportDialog();
                 }
               },
               itemBuilder: (context) => [
@@ -143,6 +243,16 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                       Icon(LucideIcons.key, size: 16, color: FacultyColors.gray600),
                       SizedBox(width: 8),
                       Text('Show Joining Code', style: TextStyle(fontSize: 13)),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'export_attendance',
+                  child: Row(
+                    children: [
+                      Icon(LucideIcons.fileOutput, size: 16, color: FacultyColors.gray600),
+                      SizedBox(width: 8),
+                      Text('Export Attendance', style: TextStyle(fontSize: 13)),
                     ],
                   ),
                 ),
