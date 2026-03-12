@@ -30,18 +30,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
 
   Future<void> _fetchHistory() async {
     try {
-      // In a real app, you might have a specific endpoint for course history
-      // For now, we'll use the general attendance history and filter by course
-      // Or if the backend supports it, pass the course ID.
-      // Assuming getAttendanceHistory returns all history for the student.
-      final historyData = await _apiService.getAttendanceHistory();
-
-      // Filter for this course if needed, or just show all if the API returns course-specific data
-      // Since the API service method is generic, let's assume it returns all.
-      // We might need to filter by course name or ID if the record contains it.
-      // However, the current AttendanceRecord model doesn't have course ID.
-      // Let's assume for now we show all history or the API needs an update to filter.
-      // Given the current constraints, we will display what we get.
+      final historyData = await _apiService.getAttendanceHistory(
+        courseId: widget.course.id,
+      );
 
       if (mounted) {
         setState(() {

@@ -8,12 +8,16 @@ class StudentStatsScreen extends StatefulWidget {
   final String studentName;
   final String rollNo;
   final String courseName;
+  final List<dynamic>? allSessions;
+  final Map<String, dynamic>? studentSessions;
 
   const StudentStatsScreen({
     super.key,
     required this.studentName,
     required this.rollNo,
     required this.courseName,
+    this.allSessions,
+    this.studentSessions,
   });
 
   @override
@@ -33,7 +37,54 @@ class _StudentStatsScreenState extends State<StudentStatsScreen> {
   @override
   void initState() {
     super.initState();
-    _generateMockHistory();
+    if (widget.allSessions != null && widget.studentSessions != null) {
+      _processRealHistory();
+    } else {
+      _generateMockHistory();
+    }
+  }
+
+  void _processRealHistory() {
+    List<Map<String, dynamic>> history = [];
+    final sessions = widget.allSessions!;
+    final attendanceMap = widget.studentSessions!;
+
+    for (var session in sessions) {
+      final sessionId = session['id'];
+      final status = attendanceMap[sessionId] ?? 'absent';
+      
+      DateTime date;
+      try {
+        if (session['date'] is String) {
+          date = DateTime.parse(session['date']);
+        } else if (session['date'] != null) {
+          date = (session['date'] as dynamic).toDate();
+        } else {
+          date = DateTime.now();
+        }
+      } catch (e) {
+        date = DateTime.now();
+      }
+
+      history.add({
+        'id': sessionId,
+        'date': _formatDate(date),
+        'time': session['startTime'] ?? 'N/A',
+        'type': session['type'] ?? 'Theory Session',
+        'isPresent': status == 'present',
+      });
+    }
+
+    // Sort history by date descending
+    // We already sorted them in CourseDetailsScreen, but safe to do again if needed
+    // Actually the widget.allSessions is already sorted descending in CourseDetailsScreen
+
+    setState(() {
+      _classHistory = history;
+      _presentCount = history.where((c) => c['isPresent']).length;
+      _absentCount = history.where((c) => !c['isPresent']).length;
+      _totalClasses = history.length;
+    });
   }
 
   void _generateMockHistory() {

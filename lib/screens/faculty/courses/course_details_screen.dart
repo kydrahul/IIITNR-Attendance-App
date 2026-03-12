@@ -198,6 +198,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
             _StudentsTab(
               course: widget.course,
               students: _students,
+              allSessions: _sessions,
             ),
                     ],
                   ),
@@ -767,10 +768,12 @@ class _AttendanceTab extends StatelessWidget {
 class _StudentsTab extends StatefulWidget {
   final Map<String, dynamic> course;
   final List<dynamic> students;
+  final List<dynamic> allSessions;
 
   const _StudentsTab({
     required this.course,
     required this.students,
+    required this.allSessions,
   });
 
   @override
@@ -852,6 +855,8 @@ class _StudentsTabState extends State<_StudentsTab> {
               studentName: name,
               rollNo: rollNo,
               courseName: widget.course['name'] ?? 'Course',
+              allSessions: widget.allSessions,
+              studentSessions: student['sessions'],
             ),
           ),
         );
