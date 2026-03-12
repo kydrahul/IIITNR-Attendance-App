@@ -60,11 +60,13 @@ class FacultyApiService {
     int? radius,
     int? validitySeconds,
     String? classType,
+    String? roomNumber,
     bool isLocationRequired = true,
   }) async {
     try {
       final body = {
         'courseId': courseId,
+        if (roomNumber != null) 'roomNumber': roomNumber,
         if (latitude != null) 'latitude': latitude,
         if (longitude != null) 'longitude': longitude,
         if (radius != null) 'radius': radius,

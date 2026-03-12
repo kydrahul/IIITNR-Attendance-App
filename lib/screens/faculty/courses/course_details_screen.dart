@@ -232,7 +232,9 @@ class _OverviewTab extends StatelessWidget {
             Text('Recent Activity',
                 style: FacultyTextStyles.h3.copyWith(fontSize: 16)),
             TextButton(
-              onPressed: () {},
+              onPressed: () {
+                DefaultTabController.of(context).animateTo(1);
+              },
               child: const Text('View All',
                   style: TextStyle(
                       color: FacultyColors.primary,
@@ -251,17 +253,24 @@ class _OverviewTab extends StatelessWidget {
           )
         else
           ...sessions.take(5).map((session) {
-            // Calculate attendance ratio if available
-            // In the grid data, we'd need to count how many students were present in this session
-            // But for simplicity in the overview, we can just show session details
-            final date = DateTime.tryParse(session['date']?.toString() ?? '') ?? DateTime.now();
-            final dateStr = '${date.day} ${_getMonth(date.month)}';
+            // Priority: startTimeIso -> date -> startTime
+            final String? iso = session['startTimeIso'];
+            final String? dateField = session['date']?.toString();
+            DateTime localDateTime;
+            
+            if (iso != null && DateTime.tryParse(iso) != null) {
+              localDateTime = DateTime.parse(iso).toLocal();
+            } else if (dateField != null && DateTime.tryParse(dateField) != null) {
+              localDateTime = DateTime.parse(dateField).toLocal();
+            } else {
+              localDateTime = DateTime.now();
+            }
+
+            final dateStr = '${localDateTime.day} ${_getMonth(localDateTime.month)}';
             return _buildActivityItem(
               context,
               dateStr,
-              session['startTime']?.toString() ?? 'N/A',
-              'Room ${session['roomNumber'] ?? 'N/A'}',
-              false, // Mock lab status for now
+              session,
             );
           }),
       ],
@@ -443,7 +452,7 @@ class _OverviewTab extends StatelessWidget {
 
         if (daySlots.isNotEmpty) {
           final prefix = i == 0 ? 'Today' : (i == 1 ? 'Tomorrow' : checkDayName);
-          return '$prefix|${daySlots.first['time']}';
+          return '$prefix|${daySlots.first['time'] ?? 'N/A'}';
         }
       }
       return 'No upcoming classes';
@@ -492,8 +501,30 @@ class _OverviewTab extends StatelessWidget {
     );
   }
 
-  Widget _buildActivityItem(BuildContext context, String date, String time,
-      String attendance, bool isLab) {
+  Widget _buildActivityItem(BuildContext context, String date, dynamic session) {
+    // Priority: startTimeIso -> date -> startTime
+    final String? iso = session['startTimeIso'];
+    final String? dateField = session['date']?.toString();
+    DateTime localDateTime;
+    
+    if (iso != null && DateTime.tryParse(iso) != null) {
+      localDateTime = DateTime.parse(iso).toLocal();
+    } else if (dateField != null && DateTime.tryParse(dateField) != null) {
+      localDateTime = DateTime.parse(dateField).toLocal();
+    } else {
+      localDateTime = DateTime.now();
+    }
+
+    final String hour = localDateTime.hour > 12 ? (localDateTime.hour - 12).toString() : (localDateTime.hour == 0 ? "12" : localDateTime.hour.toString());
+    final String minute = localDateTime.minute.toString().padLeft(2, '0');
+    final String ampm = localDateTime.hour >= 12 ? "PM" : "AM";
+    final String time = "$hour:$minute $ampm";
+    
+    final String attendance = '${session['presentCount'] ?? 0}/${session['totalStudents'] ?? 0}';
+    final String type = (session['type'] ?? session['classType'] ?? 'Theory').toString();
+    final String room = (session['roomNumber'] ?? session['room'] ?? 'N/A').toString();
+    final bool isLab = type.toLowerCase().contains('lab');
+
     return InkWell(
       onTap: () {
         Navigator.push(
@@ -503,8 +534,10 @@ class _OverviewTab extends StatelessWidget {
               course: course,
               dateStr: date,
               timeStr: time,
-              totalStudents: 50,
-              presentCount: int.tryParse(attendance.split('/')[0]) ?? 42,
+              totalStudents: session['totalStudents'] ?? 0,
+              presentCount: session['presentCount'] ?? 0,
+              sessionId: session['id']?.toString(),
+              roomNumber: room,
             ),
           ),
         );
@@ -539,9 +572,11 @@ class _OverviewTab extends StatelessWidget {
                   Text(date,
                       style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 14)),
-                  Text(time,
+                  Text('$time • $type • Room: $room',
                       style: FacultyTextStyles.bodySmall.copyWith(
-                          color: FacultyColors.gray500, fontSize: 12)),
+                          color: FacultyColors.gray500, fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
@@ -598,10 +633,27 @@ class _AttendanceTab extends StatelessWidget {
   }
 
   Widget _buildSessionCard(BuildContext context, dynamic session) {
-    final date = DateTime.tryParse(session['date']?.toString() ?? '') ?? DateTime.now();
-    final String dateStr = '${date.day} ${_getMonth(date.month)} ${date.year}';
-    final String startTime = session['startTime']?.toString() ?? 'N/A';
-    final String room = session['roomNumber']?.toString() ?? 'N/A';
+    // Priority: startTimeIso -> date -> startTime
+    final String? iso = session['startTimeIso'];
+    final String? dateField = session['date']?.toString();
+    DateTime localDateTime;
+    
+    if (iso != null && DateTime.tryParse(iso) != null) {
+      localDateTime = DateTime.parse(iso).toLocal();
+    } else if (dateField != null && DateTime.tryParse(dateField) != null) {
+      localDateTime = DateTime.parse(dateField).toLocal();
+    } else {
+      localDateTime = DateTime.now();
+    }
+
+    final String dateStr = '${localDateTime.day} ${_getMonth(localDateTime.month)} ${localDateTime.year}';
+    
+    final String hour = localDateTime.hour > 12 ? (localDateTime.hour - 12).toString() : (localDateTime.hour == 0 ? "12" : localDateTime.hour.toString());
+    final String minute = localDateTime.minute.toString().padLeft(2, '0');
+    final String ampm = localDateTime.hour >= 12 ? "PM" : "AM";
+    final String startTime = "$hour:$minute $ampm";
+    
+    final String room = session['roomNumber']?.toString() ?? session['room']?.toString() ?? 'N/A';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -623,8 +675,8 @@ class _AttendanceTab extends StatelessWidget {
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 2),
-                  const Text('Lecture Session',
-                      style: TextStyle(
+                  Text('${session['type'] ?? session['classType'] ?? 'Theory'} Session',
+                      style: const TextStyle(
                           color: FacultyColors.gray500, fontSize: 12)),
                 ],
               ),
@@ -634,10 +686,15 @@ class _AttendanceTab extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildMetric('Time', startTime, FacultyColors.blue600),
-              _buildMetric('Room', room, FacultyColors.gray600),
+              Expanded(
+                child: _buildMetric('Time', startTime, FacultyColors.blue600),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMetric('Room', room, FacultyColors.gray600),
+              ),
+              const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(
@@ -647,9 +704,10 @@ class _AttendanceTab extends StatelessWidget {
                         course: course,
                         dateStr: dateStr,
                         timeStr: startTime,
-                        totalStudents: 0, 
-                        presentCount: 0,
+                        totalStudents: session['totalStudents'] ?? 0,
+                        presentCount: session['presentCount'] ?? 0,
                         sessionId: session['id']?.toString(),
+                        roomNumber: room,
                       ),
                     ),
                   );
@@ -677,6 +735,8 @@ class _AttendanceTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
                 fontWeight: FontWeight.bold, fontSize: 16, color: color)),
         Text(label,

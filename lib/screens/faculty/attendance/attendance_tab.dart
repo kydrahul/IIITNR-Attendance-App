@@ -5,6 +5,7 @@ import '../../../constants/faculty/faculty_text_styles.dart';
 import '../../../models/faculty/faculty_models.dart';
 import '../../../services/faculty/faculty_api_service.dart';
 import '../courses/start_session_screen.dart';
+import '../courses/session_details_screen.dart';
 
 class FacultyAttendanceTab extends StatefulWidget {
   final Course? initialCourse;
@@ -698,55 +699,105 @@ class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
       itemCount: _gridSessions.length,
       itemBuilder: (context, index) {
         final session = _gridSessions[index];
-        final String date = session['date'] ?? 'Unknown Date';
-        final String time = session['time'] ?? 'Unknown Time';
-        final String type = session['type'] ?? 'Theory';
+        
+        // Localize session time
+        final String? iso = session['startTimeIso'];
+        final String? dateField = session['date']?.toString();
+        DateTime localDateTime;
+        
+        if (iso != null && DateTime.tryParse(iso) != null) {
+          localDateTime = DateTime.parse(iso).toLocal();
+        } else if (dateField != null && DateTime.tryParse(dateField) != null) {
+          localDateTime = DateTime.parse(dateField).toLocal();
+        } else {
+          localDateTime = DateTime.now();
+        }
+
+        final String date = '${localDateTime.day}/${localDateTime.month}/${localDateTime.year}';
+        final String hour = localDateTime.hour > 12 ? (localDateTime.hour - 12).toString() : (localDateTime.hour == 0 ? "12" : localDateTime.hour.toString());
+        final String minute = localDateTime.minute.toString().padLeft(2, '0');
+        final String ampm = localDateTime.hour >= 12 ? "PM" : "AM";
+        final String time = "$hour:$minute $ampm";
+                           
+        final String type = session['type'] ?? session['classType'] ?? 'Theory';
+        final String room = session['roomNumber']?.toString() ?? session['room']?.toString() ?? 'N/A';
         final num attPerc = session['attendancePercentage'] ?? 0;
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: FacultyColors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: FacultyColors.gray100),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        return InkWell(
+          onTap: () {
+            final courseMap = {
+              'id': _selectedCourse!.id,
+              'code': _selectedCourse!.code,
+              'name': _selectedCourse!.name,
+              'semester': _selectedCourse!.semester,
+              'students': _gridStudents,
+            };
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SessionDetailsScreen(
+                  course: courseMap,
+                  dateStr: date,
+                  timeStr: time,
+                  totalStudents: session['totalStudents'] ?? 0,
+                  presentCount: session['presentCount'] ?? 0,
+                  sessionId: session['id']?.toString(),
+                  roomNumber: room,
+                ),
               ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(date,
-                      style: FacultyTextStyles.h3.copyWith(fontSize: 18)),
-                  const SizedBox(height: 4),
-                  Text('$time • $type',
-                      style: FacultyTextStyles.bodySmall.copyWith(
-                          color: FacultyColors.gray500,
-                          fontWeight: FontWeight.w500)),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('${attPerc.toStringAsFixed(1)}%',
-                      style: FacultyTextStyles.h2.copyWith(
-                          color: attPerc >= 75
-                              ? FacultyColors.green600
-                              : FacultyColors.red600)),
-                  Text('Attendance',
-                      style: FacultyTextStyles.bodySmall
-                          .copyWith(color: FacultyColors.gray500)),
-                ],
-              ),
-            ],
+            );
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: FacultyColors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: FacultyColors.gray100),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(date,
+                          style: FacultyTextStyles.h3.copyWith(fontSize: 18)),
+                      const SizedBox(height: 4),
+                      Text('$time • $type • Room: $room',
+                          style: FacultyTextStyles.bodySmall.copyWith(
+                              color: FacultyColors.gray500,
+                              fontWeight: FontWeight.w500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('${attPerc.toStringAsFixed(1)}%',
+                        style: FacultyTextStyles.h2.copyWith(
+                            color: attPerc >= 75
+                                ? FacultyColors.green600
+                                : FacultyColors.red600)),
+                    Text('Attendance',
+                        style: FacultyTextStyles.bodySmall
+                            .copyWith(color: FacultyColors.gray500)),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },

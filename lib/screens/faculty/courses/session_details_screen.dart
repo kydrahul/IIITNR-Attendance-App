@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../constants/faculty/faculty_colors.dart';
 import '../../../constants/faculty/faculty_text_styles.dart';
+import '../../../services/faculty/faculty_api_service.dart';
 
 class SessionDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> course;
@@ -11,6 +12,7 @@ class SessionDetailsScreen extends StatefulWidget {
   final int totalStudents;
   final int presentCount;
   final String? sessionId;
+  final String? roomNumber;
 
   const SessionDetailsScreen({
     super.key,
@@ -20,6 +22,7 @@ class SessionDetailsScreen extends StatefulWidget {
     required this.totalStudents,
     required this.presentCount,
     this.sessionId,
+    this.roomNumber,
   });
 
   @override
@@ -32,6 +35,9 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen>
   String _searchQuery = '';
   final List<Map<String, dynamic>> _students = [];
   String? _expandedStudentRollNo;
+  bool _isLoading = false;
+  String? _errorMessage;
+  final FacultyApiService _apiService = FacultyApiService();
 
   void _updateAttendance(Map<String, dynamic> student, bool isPresent) {
     if (student['isPresent'] != isPresent) {
@@ -59,7 +65,51 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _initializeStudents();
+    _fetchSessionAttendance();
+  }
+
+  Future<void> _fetchSessionAttendance() async {
+    if (widget.sessionId == null) {
+      _initializeStudents();
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // First get all course students to have the full list
+      final allStudents = await _apiService.listCourseStudents(
+        widget.course['id']?.toString() ?? '',
+        sessionId: widget.sessionId
+      );
+
+      if (mounted) {
+        setState(() {
+          _students.clear();
+          for (var s in allStudents) {
+            _students.add({
+              'id': s.id,
+              'rollNo': s.rollNo,
+              'name': s.name,
+              'isPresent': s.status?.toLowerCase() == 'present',
+              'isEdited': false,
+              'markedTime': s.markedAt ?? '',
+            });
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _initializeStudents() {
@@ -149,11 +199,39 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen>
 
   int get currentPresentCount =>
       _students.where((s) => s['isPresent'] == true).length;
-  int get currentAbsentCount => widget.totalStudents - currentPresentCount;
+  int get currentAbsentCount => _students.length - currentPresentCount;
 
   @override
   Widget build(BuildContext context) {
-    final percent = (currentPresentCount / widget.totalStudents) * 100;
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: FacultyColors.background,
+        appBar: AppBar(backgroundColor: FacultyColors.white, elevation: 0),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        backgroundColor: FacultyColors.background,
+        appBar: AppBar(backgroundColor: FacultyColors.white, elevation: 0),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(LucideIcons.alertCircle, color: FacultyColors.red600, size: 48),
+              const SizedBox(height: 16),
+              Text('Error: $_errorMessage', style: const TextStyle(color: FacultyColors.red600)),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: _fetchSessionAttendance, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final totalCount = _students.isEmpty ? widget.totalStudents : _students.length;
+    final percent = totalCount > 0 ? (currentPresentCount / totalCount) * 100 : 0.0;
 
     return Scaffold(
       backgroundColor: FacultyColors.background,
@@ -191,7 +269,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Lecture • ${widget.timeStr}',
+                          'Lecture • ${widget.timeStr} • Room: ${widget.roomNumber ?? 'N/A'}',
                           style: FacultyTextStyles.bodyMedium.copyWith(
                             color: FacultyColors.gray500,
                           ),
@@ -221,7 +299,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen>
                 const SizedBox(height: 24),
                 Row(
                   children: [
-                    _buildStatCard('Total', widget.totalStudents.toString(),
+                    _buildStatCard('Total', totalCount.toString(),
                         FacultyColors.gray800, FacultyColors.gray100),
                     const SizedBox(width: 16),
                     _buildStatCard('Present', currentPresentCount.toString(),
@@ -472,6 +550,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen>
                     ),
                     const SizedBox(width: 16),
                     Expanded(
+                      flex: 3,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -480,6 +559,8 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen>
                             style: FacultyTextStyles.bodyLarge.copyWith(
                               color: FacultyColors.gray800,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Row(
@@ -495,66 +576,70 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen>
                         ],
                       ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            if (isEdited) ...[
+                    const SizedBox(width: 8),
+                    Flexible(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (isEdited) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: FacultyColors.yellow50,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                        color: FacultyColors.yellow200),
+                                  ),
+                                  child: Text(
+                                    'Modified',
+                                    style: FacultyTextStyles.label.copyWith(
+                                      color: FacultyColors.yellow800,
+                                      fontSize: 9,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                              ],
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
+                                    horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: FacultyColors.yellow50,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                      color: FacultyColors.yellow200),
+                                  color: isPresentTab
+                                      ? FacultyColors.green50
+                                      : FacultyColors.red50,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  'Modified',
-                                  style: FacultyTextStyles.label.copyWith(
-                                    color: FacultyColors.yellow800,
-                                    fontSize: 9,
+                                  isPresentTab ? 'Present' : 'Absent',
+                                  style: FacultyTextStyles.bodySmall.copyWith(
+                                    color: isPresentTab
+                                        ? FacultyColors.green700
+                                        : FacultyColors.red700,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
                             ],
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isPresentTab
-                                    ? FacultyColors.green50
-                                    : FacultyColors.red50,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                isPresentTab ? 'Present' : 'Absent',
-                                style: FacultyTextStyles.bodySmall.copyWith(
-                                  color: isPresentTab
-                                      ? FacultyColors.green700
-                                      : FacultyColors.red700,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: Text(
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
                             markedTime,
                             style: FacultyTextStyles.label.copyWith(
                               color: FacultyColors.gray400,
                               fontSize: 9,
                               letterSpacing: 0,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),

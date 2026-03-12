@@ -127,6 +127,7 @@ class AttendanceRecord {
   final String time;
   final String type; // Added type
   final String status; // "Present", "Absent"
+  final String room; // Added room
 
   AttendanceRecord({
     required this.id,
@@ -135,6 +136,7 @@ class AttendanceRecord {
     required this.time,
     required this.type,
     required this.status,
+    required this.room,
   });
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
@@ -170,6 +172,7 @@ class AttendanceRecord {
       time: timeStr,
       type: json['type'] ?? 'Theory', // Default to Theory if missing
       status: json['status'] == 'present' ? 'Present' : 'Absent',
+      room: (json['roomNumber'] ?? json['room'] ?? 'N/A').toString(),
     );
   }
 }

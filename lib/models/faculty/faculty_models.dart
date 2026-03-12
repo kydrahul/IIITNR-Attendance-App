@@ -20,12 +20,37 @@ class Student {
       status = (json['present'] == true) ? 'present' : 'absent';
     }
 
+    // Parse markedAt if it's a map (Firestore timestamp)
+    String? markedAtStr;
+    final dynamic markedAtRaw = json['markedAt'];
+    if (markedAtRaw is Map && markedAtRaw.containsKey('_seconds')) {
+      final int seconds = markedAtRaw['_seconds'];
+      final date = DateTime.fromMillisecondsSinceEpoch(seconds * 1000).toLocal();
+      final hour = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+      final minute = date.minute.toString().padLeft(2, '0');
+      final ampm = date.hour >= 12 ? "PM" : "AM";
+      markedAtStr = "$hour:$minute $ampm";
+    } else if (markedAtRaw is String && markedAtRaw.isNotEmpty) {
+      final parsed = DateTime.tryParse(markedAtRaw);
+      if (parsed != null) {
+        final local = parsed.toLocal();
+        final hour = local.hour > 12 ? local.hour - 12 : (local.hour == 0 ? 12 : local.hour);
+        final minute = local.minute.toString().padLeft(2, '0');
+        final ampm = local.hour >= 12 ? "PM" : "AM";
+        markedAtStr = "$hour:$minute $ampm";
+      } else {
+        markedAtStr = markedAtRaw;
+      }
+    } else {
+      markedAtStr = markedAtRaw?.toString();
+    }
+
     return Student(
       id: (json['id'] ?? json['studentId'] ?? '').toString(),
       name: (json['name'] ?? json['studentName'] ?? 'Unknown').toString(),
       rollNo: (json['rollNo'] ?? json['roll'] ?? 'N/A').toString(),
       status: status,
-      markedAt: json['markedAt']?.toString(),
+      markedAt: markedAtStr,
     );
   }
 
@@ -168,6 +193,7 @@ class AttendanceSession {
   final double? longitude;
   final int radius;
   final bool isLocationRequired;
+  final String? roomNumber;
 
   AttendanceSession({
     required this.id,
@@ -181,15 +207,33 @@ class AttendanceSession {
     this.longitude,
     required this.radius,
     this.isLocationRequired = true,
+    this.roomNumber,
   });
 
   factory AttendanceSession.fromJson(Map<String, dynamic> json) {
+    // Try to parse from various time fields to get the most accurate local time
+    DateTime parsedTime;
+    final String? iso = json['startTimeIso'];
+    final String? dateStr = json['date']?.toString();
+    final String? startStr = json['startTime']?.toString();
+
+    if (iso != null && DateTime.tryParse(iso) != null) {
+      parsedTime = DateTime.parse(iso).toLocal();
+    } else if (dateStr != null && DateTime.tryParse(dateStr) != null) {
+      parsedTime = DateTime.parse(dateStr).toLocal();
+    } else if (startStr != null && DateTime.tryParse(startStr) != null) {
+      // startTime might be "09:30 AM", which DateTime.tryParse won't handle
+      parsedTime = DateTime.tryParse(startStr)?.toLocal() ?? DateTime.now();
+    } else {
+      parsedTime = DateTime.now();
+    }
+
     return AttendanceSession(
       id: json['sessionId'] ?? json['id'] ?? '',
       courseId: json['courseId'] ?? '',
       qrData: json['qrData'] ?? '',
       qrVersion: json['qrVersion'] ?? 1,
-      startTime: DateTime.tryParse(json['startTime'] ?? '') ?? DateTime.now(),
+      startTime: parsedTime,
       endTime:
           json['endTime'] != null ? DateTime.tryParse(json['endTime']) : null,
       classType: json['classType'],
@@ -197,6 +241,7 @@ class AttendanceSession {
       longitude: json['longitude']?.toDouble(),
       radius: json['radius'] ?? 1100,
       isLocationRequired: json['isLocationRequired'] ?? true,
+      roomNumber: json['roomNumber'],
     );
   }
 
@@ -213,6 +258,7 @@ class AttendanceSession {
       'longitude': longitude,
       'radius': radius,
       'isLocationRequired': isLocationRequired,
+      'roomNumber': roomNumber,
     };
   }
 }
@@ -288,7 +334,7 @@ class RoomModel {
   factory RoomModel.fromJson(Map<String, dynamic> json) {
     return RoomModel(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
-      name: (json['name'] ?? 'Unknown Room').toString(),
+      name: (json['name'] ?? json['roomName'] ?? json['room_name'] ?? 'Unknown Room').toString(),
       latitude: (json['latitude'] as num? ?? json['Latitude'] as num? ?? 0.0).toDouble(),
       longitude: (json['longitude'] as num? ?? 
                   json['Longitude'] as num? ?? 

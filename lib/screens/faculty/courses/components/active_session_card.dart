@@ -94,7 +94,7 @@ class ActiveSessionCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              Text('Range: ${provider.locationRadius}m',
+              Text('Room: ${provider.selectedRoom ?? 'N/A'} • Range: ${provider.locationRadius}m',
                   style: const TextStyle(
                       color: FacultyColors.gray500, fontSize: 12)),
             ],

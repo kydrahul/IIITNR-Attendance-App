@@ -251,6 +251,7 @@ class LiveSessionProvider extends ChangeNotifier {
           'isPresent': student.status?.toLowerCase() == 'present',
           'isEdited': false,
           'markedTime': student.markedAt ?? '',
+          'isUpdating': false,
         });
       }
       notifyListeners();
@@ -260,15 +261,12 @@ class LiveSessionProvider extends ChangeNotifier {
   }
 
   Future<void> updateAttendance(Map<String, dynamic> student, bool isPresent) async {
-    if (student['isPresent'] != isPresent) {
-      if (_sessionId != null && student['id'] != null) {
-        // Backend expects lowercase 'present' or 'absent'
-        await _apiService.saveManualAttendance(
-            _sessionId!, student['id'], isPresent ? 'present' : 'absent');
-      }
-
+    final originalStatus = student['isPresent'];
+    if (originalStatus != isPresent) {
+      // 1. Update local state immediately (Optimistic UI)
       student['isPresent'] = isPresent;
       student['isEdited'] = true;
+      student['isUpdating'] = true; // Prevent polling from overwriting while we save
 
       final now = DateTime.now();
       String ampm = now.hour >= 12 ? 'PM' : 'AM';
@@ -278,6 +276,22 @@ class LiveSessionProvider extends ChangeNotifier {
 
       _expandedStudentRollNo = null;
       notifyListeners();
+
+      try {
+        if (_sessionId != null && student['id'] != null) {
+          // Backend expects lowercase 'present' or 'absent'
+          await _apiService.saveManualAttendance(
+              _sessionId!, student['id'], isPresent ? 'present' : 'absent');
+        }
+      } catch (e) {
+        debugPrint('Failed to save manual attendance: $e');
+        // 2. Rollback on error
+        student['isPresent'] = originalStatus;
+        student['isEdited'] = false;
+        notifyListeners();
+      } finally {
+        student['isUpdating'] = false;
+      }
     } else {
       _expandedStudentRollNo = null;
       notifyListeners();
@@ -301,6 +315,7 @@ class LiveSessionProvider extends ChangeNotifier {
       radius: _locationRadius,
       validitySeconds: _qrDuration * 60,
       classType: _classType,
+      roomNumber: _selectedRoom,
       latitude: room?.latitude,
       longitude: room?.longitude,
       isLocationRequired: _isLocationRequired,
@@ -378,6 +393,9 @@ class LiveSessionProvider extends ChangeNotifier {
         final isPresent = updatedStudent.status?.toLowerCase() == 'present';
         final index = _students.indexWhere((s) => s['id'] == updatedStudent.id);
         if (index != -1) {
+          // Skip if this student is currently being manually updated
+          if (_students[index]['isUpdating'] == true) continue;
+
           if (_students[index]['isPresent'] != isPresent) {
             _students[index]['isPresent'] = isPresent;
             updated = true;

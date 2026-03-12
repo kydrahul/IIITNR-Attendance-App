@@ -381,7 +381,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.gray800)),
                             const SizedBox(height: 2),
-                            Text("${item.day} • ${item.time}",
+                            Text("${item.day} • ${item.time} • Room: ${item.room}",
                                 style: AppTextStyles.bodySmall
                                     .copyWith(color: AppColors.gray500)),
                             const SizedBox(height: 2),

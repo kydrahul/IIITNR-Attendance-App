@@ -153,9 +153,9 @@ class SessionSetupForm extends StatelessWidget {
                     child: Text(room.name, style: FacultyTextStyles.bodyMedium),
                   );
                 }).toList(),
-                onChanged: provider.isLocationRequired ? (val) {
+                onChanged: (val) {
                   provider.selectedRoom = val;
-                } : null,
+                },
               ),
             ),
           ),

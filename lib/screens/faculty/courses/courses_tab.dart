@@ -528,6 +528,8 @@ class _CourseCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           '${course.code}  |  ${course.degree ?? 'B.Tech'}  |  ${course.academicYear.toLowerCase().contains('year') ? course.academicYear : "${course.academicYear} Year"}  |  ${course.credits} Credits',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.roboto(
                             color: FacultyColors.gray500,
                             fontSize: 12,
@@ -627,6 +629,8 @@ class _CourseCard extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.montserrat(
             fontSize: 14,
             color: FacultyColors.gray800,

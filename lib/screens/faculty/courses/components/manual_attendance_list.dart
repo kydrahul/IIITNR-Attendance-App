@@ -212,6 +212,7 @@ class _ManualAttendanceListState extends State<ManualAttendanceList>
                     ),
                     const SizedBox(width: 16),
                     Expanded(
+                      flex: 3, // Give more weight to name/roll section
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -220,6 +221,8 @@ class _ManualAttendanceListState extends State<ManualAttendanceList>
                             style: FacultyTextStyles.bodyMedium.copyWith(
                               color: FacultyColors.gray800,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Row(
@@ -235,66 +238,70 @@ class _ManualAttendanceListState extends State<ManualAttendanceList>
                         ],
                       ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            if (isEdited) ...[
+                    const SizedBox(width: 8),
+                    Flexible(
+                      flex: 2, // Allow status/time section to be flexible
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (isEdited) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: FacultyColors.yellow50,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                        color: FacultyColors.yellow200),
+                                  ),
+                                  child: Text(
+                                    'Modified',
+                                    style: FacultyTextStyles.label.copyWith(
+                                      color: FacultyColors.yellow800,
+                                      fontSize: 9,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                              ],
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
+                                    horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: FacultyColors.yellow50,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                      color: FacultyColors.yellow200),
+                                  color: isPresentTab
+                                      ? FacultyColors.green50
+                                      : FacultyColors.red50,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  'Modified',
-                                  style: FacultyTextStyles.label.copyWith(
-                                    color: FacultyColors.yellow800,
-                                    fontSize: 9,
+                                  isPresentTab ? 'Present' : 'Absent',
+                                  style: FacultyTextStyles.bodySmall.copyWith(
+                                    color: isPresentTab
+                                        ? FacultyColors.green700
+                                        : FacultyColors.red700,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
                             ],
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isPresentTab
-                                    ? FacultyColors.green50
-                                    : FacultyColors.red50,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                isPresentTab ? 'Present' : 'Absent',
-                                style: FacultyTextStyles.bodySmall.copyWith(
-                                  color: isPresentTab
-                                      ? FacultyColors.green700
-                                      : FacultyColors.red700,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: Text(
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
                             markedTime,
                             style: FacultyTextStyles.label.copyWith(
                               color: FacultyColors.gray400,
                               fontSize: 9,
                               letterSpacing: 0,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
