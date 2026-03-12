@@ -14,11 +14,17 @@ class Student {
   });
 
   factory Student.fromJson(Map<String, dynamic> json) {
+    String? status = json['status']?.toString();
+    // If status is missing but 'present' boolean is there (from listCourseStudents)
+    if (status == null && json['present'] != null) {
+      status = (json['present'] == true) ? 'present' : 'absent';
+    }
+
     return Student(
       id: (json['id'] ?? json['studentId'] ?? '').toString(),
       name: (json['name'] ?? json['studentName'] ?? 'Unknown').toString(),
       rollNo: (json['rollNo'] ?? json['roll'] ?? 'N/A').toString(),
-      status: json['status']?.toString(),
+      status: status,
       markedAt: json['markedAt']?.toString(),
     );
   }

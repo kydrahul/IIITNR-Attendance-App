@@ -241,7 +241,7 @@ class LiveSessionProvider extends ChangeNotifier {
 
   Future<void> _initializeStudents() async {
     try {
-      final listed = await _apiService.listCourseStudents(course['id']);
+      final listed = await _apiService.listCourseStudents(course['id'], sessionId: _sessionId);
       _students.clear();
       for (var student in listed) {
         _students.add({
@@ -262,8 +262,9 @@ class LiveSessionProvider extends ChangeNotifier {
   Future<void> updateAttendance(Map<String, dynamic> student, bool isPresent) async {
     if (student['isPresent'] != isPresent) {
       if (_sessionId != null && student['id'] != null) {
+        // Backend expects lowercase 'present' or 'absent'
         await _apiService.saveManualAttendance(
-            _sessionId!, student['id'], isPresent ? 'Present' : 'Absent');
+            _sessionId!, student['id'], isPresent ? 'present' : 'absent');
       }
 
       student['isPresent'] = isPresent;
