@@ -6,11 +6,13 @@ import '../../constants/faculty/faculty_text_styles.dart';
 class ProfilePopup extends StatelessWidget {
   final VoidCallback onClose;
   final Map<String, dynamic>? profileData;
+  final String? photoUrl;
 
   const ProfilePopup({
     super.key,
     required this.onClose,
     this.profileData,
+    this.photoUrl,
   });
 
   @override
@@ -20,7 +22,7 @@ class ProfilePopup extends StatelessWidget {
     final department = profileData?['department'] ?? 'N/A';
     final facultyId = profileData?['facultyId'] ?? profileData?['_id'] ?? 'N/A';
     final email = profileData?['email'] ?? 'N/A';
-    final photoUrl = profileData?['photoUrl'];
+    final effectivePhotoUrl = photoUrl ?? profileData?['photoUrl'];
 
     return Stack(
       children: [
@@ -94,9 +96,9 @@ class ProfilePopup extends StatelessWidget {
                         color: FacultyColors.white,
                       ),
                       child: ClipOval(
-                        child: photoUrl != null
+                        child: effectivePhotoUrl != null && effectivePhotoUrl.isNotEmpty
                             ? Image.network(
-                                photoUrl,
+                                effectivePhotoUrl,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) =>
                                     _buildInitialAvatar(name),

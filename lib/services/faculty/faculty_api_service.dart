@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../models/faculty/faculty_models.dart';
 import '../../core/network/api_client.dart';
 
@@ -7,13 +8,28 @@ class FacultyApiService {
   FacultyApiService._internal();
 
   final ApiClient _apiClient = ApiClient();
+  FacultyProfile? _cachedProfile;
 
   // --- Faculty Endpoints ---
 
-  Future<Map<String, dynamic>> getProfile() async {
+  Future<FacultyProfile> getProfile({bool forceRefresh = false}) async {
+    if (_cachedProfile != null && !forceRefresh) {
+      return _cachedProfile!;
+    }
     try {
       final data = await _apiClient.get('/faculty/profile');
-      return data['faculty'] ?? {};
+      _cachedProfile = FacultyProfile.fromJson(data['faculty'] ?? {});
+      return _cachedProfile!;
+    } on ApiException catch (e) {
+      throw Exception(e.message);
+    }
+  }
+
+  Future<FacultyProfile> updateProfile(Map<String, dynamic> body) async {
+    try {
+      final data = await _apiClient.post('/faculty/profile', body: body);
+      _cachedProfile = FacultyProfile.fromJson(data['faculty'] ?? {});
+      return _cachedProfile!;
     } on ApiException catch (e) {
       throw Exception(e.message);
     }
@@ -44,6 +60,7 @@ class FacultyApiService {
     int? radius,
     int? validitySeconds,
     String? classType,
+    bool isLocationRequired = true,
   }) async {
     try {
       final body = {
@@ -53,9 +70,29 @@ class FacultyApiService {
         if (radius != null) 'radius': radius,
         if (validitySeconds != null) 'validitySeconds': validitySeconds,
         'classType': classType ?? 'Theory',
+        'isLocationRequired': isLocationRequired,
       };
       return await _apiClient.post('/faculty/generate-qr', body: body);
     } on ApiException catch (e) {
+      throw Exception(e.message);
+    }
+  }
+
+  Future<List<RoomModel>> getRooms() async {
+    try {
+      final data = await _apiClient.get('/rooms');
+      debugPrint('FacultyApiService: getRooms response type: ${data.runtimeType}');
+      
+      // If server returns HTML (404), 'data' will be a String, not a List
+      if (data is! List) {
+        debugPrint('FacultyApiService: getRooms expected List but got ${data.runtimeType}');
+        return [];
+      }
+
+      final List roomsJson = data;
+      return roomsJson.map((json) => RoomModel.fromJson(json)).toList();
+    } on ApiException catch (e) {
+      debugPrint('FacultyApiService: getRooms error: ${e.message}');
       throw Exception(e.message);
     }
   }
@@ -125,6 +162,17 @@ class FacultyApiService {
   Future<Map<String, dynamic>> getCourseAttendanceGrid(String courseId) async {
     try {
       return await _apiClient.get('/faculty/course/$courseId/attendance-grid');
+    } on ApiException catch (e) {
+      throw Exception(e.message);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateCourseSchedule({
+    required String courseId,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      return await _apiClient.put('/faculty/courses/$courseId', body: payload);
     } on ApiException catch (e) {
       throw Exception(e.message);
     }

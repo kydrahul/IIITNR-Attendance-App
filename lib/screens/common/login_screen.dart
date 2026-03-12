@@ -15,8 +15,9 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
-  final ApiService _apiService = ApiService();
-  bool _isLoading = false;
+  bool _isStudentLoading = false;
+  bool _isFacultyLoading = false;
+  bool get _isLoading => _isStudentLoading || _isFacultyLoading;
   String? _errorMessage;
 
   Future<void> _handleBiometricAndRoute(String targetRoute) async {
@@ -28,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!authenticated) {
         setState(() {
           _errorMessage = 'Biometric authentication failed. Please try again.';
-          _isLoading = false;
+          _isStudentLoading = false;
         });
         await _authService.signOut();
         return;
@@ -42,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleGoogleSignIn() async {
     setState(() {
-      _isLoading = true;
+      _isStudentLoading = true;
       _errorMessage = null;
     });
 
@@ -51,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (userCredential == null) {
         setState(() {
-          _isLoading = false;
+          _isStudentLoading = false;
         });
         return;
       }
@@ -62,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _errorMessage =
               'Only IIITNR students can access this app.\nPlease use your @iiitnr.edu.in email.';
-          _isLoading = false;
+          _isStudentLoading = false;
         });
         await _authService.signOut();
         return;
@@ -70,11 +71,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Check if profile exists (bypass cache to verify real DB state)
       try {
-        await _apiService.getProfile(checkProfileExists: true);
+        final apiService = ApiService();
+        await apiService.getProfile(checkProfileExists: true);
+        
+        await _authService.setUserRole('student');
         // Profile exists, navigate to home via biometric check
         await _handleBiometricAndRoute('/home');
       } catch (e) {
         if (e.toString().contains('Profile not found')) {
+          await _authService.setUserRole('student');
           // Profile doesn't exist, navigate to profile setup
           if (mounted) {
             Navigator.pushReplacementNamed(context, '/profile-setup');
@@ -84,21 +89,21 @@ class _LoginScreenState extends State<LoginScreen> {
           setState(() {
             _errorMessage =
                 'Login Error: ${e.toString().replaceAll("Exception:", "")}';
-            _isLoading = false;
+            _isStudentLoading = false;
           });
         }
       }
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to sign in: ${e.toString()}';
-        _isLoading = false;
+        _isStudentLoading = false;
       });
     }
   }
 
   Future<void> _handleFacultyLogin() async {
     setState(() {
-      _isLoading = true;
+      _isFacultyLoading = true;
       _errorMessage = null;
     });
 
@@ -107,39 +112,35 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (userCredential == null) {
         setState(() {
-          _isLoading = false;
+          _isFacultyLoading = false;
         });
         return;
       }
 
-      final email = userCredential.user?.email ?? '';
-      if (!email.endsWith('@iiitnr.edu.in')) {
-        setState(() {
-          _errorMessage =
-              'Only IIITNR faculty can access this app.\nPlease use your @iiitnr.edu.in email.';
-          _isLoading = false;
-        });
-        await _authService.signOut();
-        return;
-      }
-
-      // Check if profile exists
+      // Check if profile is complete
+      bool isProfileComplete = false;
       try {
-        await FacultyApiService().getProfile();
-        // Profile exists, perform biometrics and navigate
-        await _handleBiometricAndRoute('/faculty-home');
+        final profile = await FacultyApiService().getProfile();
+        if (profile.name.isNotEmpty) {
+          isProfileComplete = true;
+        }
       } catch (e) {
-        setState(() {
-          _errorMessage =
-              'Login Error: Profile not found or you do not have faculty access.';
-          _isLoading = false;
-        });
-        await _authService.signOut();
+        debugPrint('Faculty profile check failed: $e. Assuming first-time login.');
+        isProfileComplete = false;
+      }
+
+      if (mounted) {
+        await _authService.setUserRole('faculty');
+        if (isProfileComplete) {
+          Navigator.pushReplacementNamed(context, '/faculty-home');
+        } else {
+          Navigator.pushReplacementNamed(context, '/faculty-profile-completion');
+        }
       }
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to sign in: ${e.toString()}';
-        _isLoading = false;
+        _isFacultyLoading = false;
       });
     }
   }
@@ -224,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 minimumSize: const Size(double.infinity, 56),
               ),
-              child: _isLoading
+              child: _isStudentLoading
                   ? const SizedBox(
                       height: 20,
                       width: 20,
@@ -260,19 +261,25 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 minimumSize: const Size(double.infinity, 56),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.person_outline,
-                      size: 24, color: AppColors.black),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Login as Faculty',
-                    style:
-                        AppTextStyles.h4.copyWith(fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
+              child: _isFacultyLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.person_outline,
+                            size: 24, color: AppColors.black),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Login as Faculty',
+                          style: AppTextStyles.h4
+                              .copyWith(fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
             ),
             const SizedBox(height: 12),
             // Email domain hint

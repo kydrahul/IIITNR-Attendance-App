@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:flutter/services.dart';
 import '../../../constants/faculty/faculty_colors.dart';
 import '../../../constants/faculty/faculty_text_styles.dart';
-import '../../../widgets/faculty/search_bar.dart';
 import 'add_course_dialog.dart';
 import 'course_details_screen.dart';
+import '../../../services/faculty/faculty_api_service.dart';
+import '../../../models/faculty/faculty_models.dart';
+import 'widgets/join_code_dialog.dart';
 
 class FacultyCoursesTab extends StatefulWidget {
   const FacultyCoursesTab({super.key});
@@ -14,7 +18,10 @@ class FacultyCoursesTab extends StatefulWidget {
 }
 
 class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
+  final FacultyApiService _apiService = FacultyApiService();
   final TextEditingController _searchController = TextEditingController();
+  List<Course> _allCourses = [];
+  bool _isLoading = true;
   String _searchQuery = '';
 
   final List<String> _yearOptions = [
@@ -22,81 +29,34 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
     '2nd Year',
     '3rd Year',
     '4th Year',
-    'M.Tech',
-    'PhD'
+    'M.Tech'
   ];
   final Set<String> _selectedYears = {};
   bool _showAllYears = true;
   String _activeYearFilter = 'All';
 
-  final List<Map<String, dynamic>> _mockCourses = [
-    {
-      'name': 'Intro to AI',
-      'code': 'AI201',
-      'branch': 'DSAI',
-      'year': '1st Year',
-      'credits': 3,
-      'semester': '1',
-      'students': 80,
-      'academicYear': '2023-24',
-      'session': 'Autumn 2023'
-    },
-    {
-      'name': 'Data Structures & Algorithms',
-      'code': 'CS301',
-      'branch': 'CSE',
-      'year': '2nd Year',
-      'credits': 4,
-      'semester': '3',
-      'students': 68,
-      'academicYear': '2023-24',
-      'session': 'Autumn 2023'
-    },
-    {
-      'name': 'Digital Signal Processing',
-      'code': 'EC305',
-      'branch': 'ECE',
-      'year': '2nd Year',
-      'credits': 3,
-      'semester': '4',
-      'students': 45,
-      'academicYear': '2023-24',
-      'session': 'Spring 2024'
-    },
-    {
-      'name': 'Machine Learning',
-      'code': 'AI402',
-      'branch': 'DSAI',
-      'year': '3rd Year',
-      'credits': 4,
-      'semester': '5',
-      'students': 52,
-      'academicYear': '2024-25',
-      'session': 'Autumn 2024'
-    },
-    {
-      'name': 'Operating Systems',
-      'code': 'CS401',
-      'branch': 'CSE',
-      'year': '3rd Year',
-      'credits': 4,
-      'semester': '5',
-      'students': 72,
-      'academicYear': '2024-25',
-      'session': 'Autumn 2024'
-    },
-    {
-      'name': 'Computer Networks',
-      'code': 'CS501',
-      'branch': 'CSE',
-      'year': '4th Year',
-      'credits': 4,
-      'semester': '7',
-      'students': 60,
-      'academicYear': '2024-25',
-      'session': 'Autumn 2024'
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchCourses();
+  }
+
+  Future<void> _fetchCourses() async {
+    setState(() => _isLoading = true);
+    try {
+      final courses = await _apiService.listCourses();
+      if (mounted) {
+        setState(() {
+          _allCourses = courses;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -155,7 +115,21 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
     return GestureDetector(
       onTap: () {
         setState(() {
-          _activeYearFilter = label;
+          if (isSelected) {
+            _activeYearFilter = 'All';
+            _selectedYears.clear();
+            _showAllYears = true;
+          } else {
+            _activeYearFilter = label;
+            if (label == 'All') {
+              _selectedYears.clear();
+              _showAllYears = true;
+            } else {
+              _selectedYears.clear();
+              _selectedYears.add(label);
+              _showAllYears = false;
+            }
+          }
         });
       },
       child: Container(
@@ -199,12 +173,13 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Filter by Batch', style: FacultyTextStyles.h3),
+                  Text('Filter by Year', style: FacultyTextStyles.h3),
                   TextButton(
                     onPressed: () {
                       setState(() {
                         _showAllYears = true;
                         _selectedYears.clear();
+                        _activeYearFilter = 'All';
                       });
                       setModalState(() {});
                     },
@@ -220,6 +195,7 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
                 activeColor: FacultyColors.black,
                 onChanged: (val) {
                   _toggleAllYears(val);
+                  if (val == true) setState(() => _activeYearFilter = 'All');
                   setModalState(() {});
                 },
                 controlAffinity: ListTileControlAffinity.leading,
@@ -232,6 +208,7 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
                     activeColor: FacultyColors.black,
                     onChanged: (val) {
                       _toggleYear(year);
+                      if (val == true) setState(() => _activeYearFilter = year);
                       setModalState(() {});
                     },
                     controlAffinity: ListTileControlAffinity.leading,
@@ -266,6 +243,69 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
     showDialog(
       context: context,
       builder: (context) => const AddCourseDialog(),
+    ).then((_) => _fetchCourses());
+  }
+
+  Widget _buildEmptyState({required bool isSearch}) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: FacultyColors.gray50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isSearch ? LucideIcons.searchX : LucideIcons.book,
+                  size: 48,
+                  color: FacultyColors.gray300,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                isSearch ? "No courses found" : "No courses created",
+                style:
+                    FacultyTextStyles.h3.copyWith(color: FacultyColors.gray900),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Text(
+                  isSearch
+                      ? "We couldn't find any courses matching your search or filter."
+                      : "You haven't created any courses yet. Add your first course to start tracking attendance.",
+                  textAlign: TextAlign.center,
+                  style: FacultyTextStyles.bodyMedium
+                      .copyWith(color: FacultyColors.gray500),
+                ),
+              ),
+              if (!isSearch) ...[
+                const SizedBox(height: 32),
+                ElevatedButton.icon(
+                  onPressed: _showAddCourseDialog,
+                  icon: const Icon(LucideIcons.plus, size: 20),
+                  label: const Text('Add Course'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: FacultyColors.black,
+                    foregroundColor: FacultyColors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -297,60 +337,113 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
               ],
             ),
           ),
-          FacultySearchBar(
-            controller: _searchController,
-            onChanged: _onSearchChanged,
-            onClear: _searchQuery.isNotEmpty
-                ? () {
-                    _searchController.clear();
-                    _onSearchChanged('');
-                  }
-                : null,
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-            child: Row(
-              children: [
-                _buildFilterChip('All'),
-                ..._yearOptions.take(4).map((year) => _buildFilterChip(year)),
-              ],
+          if (!_isLoading && _allCourses.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                decoration: InputDecoration(
+                  hintText: "Search courses...",
+                  prefixIcon: const Icon(LucideIcons.search, size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(LucideIcons.x, size: 16),
+                          onPressed: () {
+                            _searchController.clear();
+                            _onSearchChanged('');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: FacultyColors.gray50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                ),
+              ),
             ),
-          ),
+          if (!_isLoading && _allCourses.isNotEmpty)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Row(
+                children: [
+                  _buildFilterChip('All'),
+                  ..._yearOptions.map((year) => _buildFilterChip(year)),
+                ],
+              ),
+            ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              children: _mockCourses.where((course) {
-                final matchesSearch = course['name']
-                        .toLowerCase()
-                        .contains(_searchQuery.toLowerCase()) ||
-                    course['code']
-                        .toLowerCase()
-                        .contains(_searchQuery.toLowerCase());
-                final matchesYear = _activeYearFilter == 'All' ||
-                    course['year'] == _activeYearFilter;
-                return matchesSearch && matchesYear;
-              }).map((course) {
-                return _CourseCard(
-                  courseName: course['name'],
-                  courseCode: course['code'],
-                  branch: course['branch'],
-                  year: course['year'],
-                  credits: course['credits'],
-                  semester: course['semester'],
-                  studentCount: course['students'],
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CourseDetailsScreen(
-                            course: course, allCourses: _mockCourses),
-                      ),
-                    );
-                  },
-                );
-              }).toList(),
-            ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _fetchCourses,
+                    child: _allCourses.isEmpty
+                        ? _buildEmptyState(isSearch: false)
+                        : Builder(builder: (context) {
+                            final filteredCourses = _allCourses.where((course) {
+                              final matchesSearch = course.name
+                                      .toLowerCase()
+                                      .contains(_searchQuery.toLowerCase()) ||
+                                  course.code
+                                      .toLowerCase()
+                                      .contains(_searchQuery.toLowerCase());
+                              final matchesYear = _activeYearFilter == 'All' ||
+                                  (_activeYearFilter == 'M.Tech' &&
+                                      (course.degree == 'M.Tech' ||
+                                          course.academicYear
+                                              .toLowerCase()
+                                              .contains('m.tech'))) ||
+                                  (course.degree != 'M.Tech' &&
+                                      (_activeYearFilter.toLowerCase().contains(
+                                              course.academicYear
+                                                  .toLowerCase()
+                                                  .replaceAll(' year', '')
+                                                  .trim()) ||
+                                          course.academicYear
+                                              .toLowerCase()
+                                              .contains(_activeYearFilter
+                                                  .toLowerCase()
+                                                  .replaceAll(' year', '')
+                                                  .trim())));
+                              return matchesSearch && matchesYear;
+                            }).toList();
+
+                            if (filteredCourses.isEmpty) {
+                              return _buildEmptyState(isSearch: true);
+                            }
+
+                            return ListView.builder(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                              itemCount: filteredCourses.length,
+                              itemBuilder: (context, index) {
+                                final course = filteredCourses[index];
+                                return _CourseCard(
+                                  course: course,
+                                  onRefresh: _fetchCourses,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            CourseDetailsScreen(
+                                          course: course.toJson(),
+                                          allCourses: _allCourses
+                                              .map((e) => e.toJson())
+                                              .toList(),
+                                        ),
+                                      ),
+                                    ).then((_) => _fetchCourses());
+                                  },
+                                );
+                              },
+                            );
+                          }),
+                  ),
           ),
         ],
       ),
@@ -359,25 +452,36 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
 }
 
 class _CourseCard extends StatelessWidget {
-  final String courseName;
-  final String courseCode;
-  final String branch;
-  final String year;
-  final int credits;
-  final String semester;
-  final int studentCount;
+  final Course course;
   final VoidCallback onTap;
+  final VoidCallback onRefresh;
 
   const _CourseCard({
-    required this.courseName,
-    required this.courseCode,
-    required this.branch,
-    required this.year,
-    required this.credits,
-    required this.semester,
-    required this.studentCount,
+    required this.course,
     required this.onTap,
+    required this.onRefresh,
   });
+
+  String _getOrdinal(String n) {
+    if (n == 'N/A') return n;
+    final i = int.tryParse(n);
+    if (i == null) return n;
+    if (i % 100 >= 11 && i % 100 <= 13) return '${i}th';
+    switch (i % 10) {
+      case 1:
+        return '${i}st';
+      case 2:
+        return '${i}nd';
+      case 3:
+        return '${i}rd';
+      default:
+        return '${i}th';
+    }
+  }
+
+  void _showJoinCodeDialog(BuildContext context) {
+    JoinCodeDialog.show(context, course.name, course.code, course.joinCode);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -390,86 +494,143 @@ class _CourseCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: FacultyColors.gray100,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        courseCode,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: FacultyColors.black,
-                          letterSpacing: 0.5,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          course.name,
+                          style: GoogleFonts.montserrat(
+                            color: FacultyColors.black,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${course.code}  |  ${course.degree ?? 'B.Tech'}  |  ${course.academicYear.toLowerCase().contains('year') ? course.academicYear : "${course.academicYear} Year"}  |  ${course.credits} Credits',
+                          style: GoogleFonts.roboto(
+                            color: FacultyColors.gray500,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(LucideIcons.moreHorizontal,
+                        size: 16, color: FacultyColors.gray400),
+                    padding: EdgeInsets.zero,
+                    onSelected: (value) {
+                      if (value == 'join_code') {
+                        _showJoinCodeDialog(context);
+                      } else if (value == 'edit_schedule') {
+                        showGeneralDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          barrierLabel: "Edit Schedule",
+                          pageBuilder: (context, _, __) =>
+                              AddCourseDialog(editCourse: course),
+                        ).then((_) => onRefresh());
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit_schedule',
+                        child: Row(
+                          children: [
+                            Icon(LucideIcons.calendar,
+                                size: 16, color: FacultyColors.gray600),
+                            SizedBox(width: 8),
+                            Text('Edit Schedule',
+                                style: TextStyle(fontSize: 13)),
+                          ],
                         ),
                       ),
-                    ),
-                    const Icon(LucideIcons.moreVertical,
-                        size: 16, color: FacultyColors.gray400),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  courseName,
-                  style: FacultyTextStyles.h3.copyWith(fontSize: 18),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$branch • $year • Semester $semester',
-                  style: FacultyTextStyles.bodySmall.copyWith(
-                    color: FacultyColors.gray500,
-                    fontWeight: FontWeight.w500,
+                      const PopupMenuItem(
+                        value: 'join_code',
+                        child: Row(
+                          children: [
+                            Icon(LucideIcons.key,
+                                size: 16, color: FacultyColors.gray600),
+                            SizedBox(width: 8),
+                            Text('Show Joining Code',
+                                style: TextStyle(fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.only(top: 12),
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: FacultyColors.gray100)),
                 ),
-                const SizedBox(height: 20),
-                Row(
+                child: Row(
                   children: [
-                    _buildMeta(
-                        LucideIcons.graduationCap, '$studentCount Students'),
-                    const SizedBox(width: 16),
-                    _buildMeta(LucideIcons.award, '$credits Credits'),
+                    Expanded(
+                        child: _buildStat(
+                            "STUDENTS", course.enrolledCount.toString())),
+                    Container(
+                        height: 24, width: 1, color: FacultyColors.gray100),
+                    Expanded(
+                        child: _buildStat(
+                            "SEMESTER", _getOrdinal(course.semester ?? 'N/A'))),
+                    Container(
+                        height: 24, width: 1, color: FacultyColors.gray100),
+                    Expanded(child: _buildStat("BRANCH", course.department)),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildMeta(IconData icon, String text) {
-    return Row(
+  Widget _buildStat(String label, String value) {
+    return Column(
       children: [
-        Icon(icon, size: 14, color: FacultyColors.gray400),
-        const SizedBox(width: 6),
         Text(
-          text,
-          style: const TextStyle(
-            fontSize: 12,
-            color: FacultyColors.gray600,
-            fontWeight: FontWeight.w500,
+          label,
+          style: GoogleFonts.roboto(
+            fontSize: 10,
+            color: FacultyColors.gray400,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: GoogleFonts.montserrat(
+            fontSize: 14,
+            color: FacultyColors.gray800,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],

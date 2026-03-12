@@ -63,6 +63,17 @@ class AuthService {
     await _googleSignIn.signOut();
     await _auth.signOut();
     await _storage.delete(key: 'auth_token');
+    await _storage.delete(key: 'user_role');
+  }
+
+  // Set user role (student or faculty)
+  Future<void> setUserRole(String role) async {
+    await _storage.write(key: 'user_role', value: role);
+  }
+
+  // Get user role
+  Future<String?> getUserRole() async {
+    return await _storage.read(key: 'user_role');
   }
 
   // Get current user

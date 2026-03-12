@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../constants/faculty/faculty_text_styles.dart';
 import '../../../services/faculty/faculty_api_service.dart';
+import '../../../models/faculty/faculty_models.dart';
 
 class AddCourseDialog extends StatefulWidget {
-  const AddCourseDialog({super.key});
+  final Course? editCourse;
+  const AddCourseDialog({super.key, this.editCourse});
 
   @override
   State<AddCourseDialog> createState() => _AddCourseDialogState();
@@ -12,27 +14,34 @@ class AddCourseDialog extends StatefulWidget {
 
 class _AddCourseDialogState extends State<AddCourseDialog> {
   final FacultyApiService _apiService = FacultyApiService();
-  int _currentStep = 1; // 1: Info & Config, 2: Timetable, 3: Review, 4: Success
+  int _currentStep =
+      1; // 1: Info, 2: Branches, 3: Timetable, 4: Review, 5: Success
   String _reviewTab = 'summary'; // 'summary' or 'table'
   bool _isCreating = false;
+  List<Course> _existingCourses = [];
 
-  // Step 1 & 2 Data
-  // Step 1: Basic Info
+  // Step 1: Basic Info & Class Configuration
   final TextEditingController _courseNameController = TextEditingController();
   final TextEditingController _courseCodeController = TextEditingController();
-
-  // Step 2: Course Configuration
-  String? _selectedBranch;
-  String? _selectedCourseYear;
-  String? _selectedAcademicYear = '2023-24';
+  String? _selectedDegree = 'B.Tech';
+  String? _selectedCourseYear = '1st';
   String? _selectedSemester = '1';
   String? _selectedCredits = '4';
   String? _selectedSession = 'Autumn';
+  String get _selectedAcademicYear {
+    final now = DateTime.now();
+    final year = now.month < 7 ? now.year - 1 : now.year;
+    return '$year-${(year + 1).toString().substring(2)}';
+  }
+
+  // Step 2: Branch selection
+  final List<String> _selectedBranches = [];
 
   // Step 3: Timetable Data
   final List<_BranchTimeSlot> _selectedSlots = [];
   String _currentTypeMode = 'theory'; // 'theory' or 'lab'
   String _selectedDay = 'Monday';
+  String? _activeBranchForSlots; // Branch currently being edited in timetable
 
   // Step 4: Results
   List<dynamic> _results = [];
@@ -59,6 +68,47 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.editCourse != null) {
+      final c = widget.editCourse!;
+      _courseNameController.text = c.name;
+      _courseCodeController.text = c.code;
+      _selectedDegree = c.degree ?? 'B.Tech';
+      _selectedSemester = c.semester ?? '1';
+      _selectedCredits = c.credits?.toString() ?? '4';
+      _selectedSession = c.session ?? 'Autumn';
+
+      _selectedBranches.clear();
+      if (c.department.isNotEmpty) {
+        _selectedBranches.add(c.department);
+      }
+
+      _selectedSlots.clear();
+      for (var slot in c.timetable) {
+        _selectedSlots.add(_BranchTimeSlot(
+          day: slot.day,
+          time: slot.time,
+          type: slot.type,
+          branch: c.department,
+        ));
+      }
+    }
+    _loadExistingCourses();
+  }
+
+  Future<void> _loadExistingCourses() async {
+    try {
+      final courses = await _apiService.listCourses();
+      setState(() {
+        _existingCourses = courses;
+      });
+    } catch (e) {
+      // Fail silently
+    }
+  }
+
+  @override
   void dispose() {
     _courseNameController.dispose();
     _courseCodeController.dispose();
@@ -68,35 +118,28 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
   // --- Logic ---
 
   void _handleSlotClick(String day, String time) {
-    if (_selectedBranch == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a branch first')));
-      return;
-    }
+    if (_activeBranchForSlots == null) return;
 
     setState(() {
-      final existingSlotIdx = _selectedSlots.indexWhere(
-          (s) => s.day == day && s.time == time && s.branch == _selectedBranch);
+      final existingSlotIdx = _selectedSlots.indexWhere((s) =>
+          s.day == day && s.time == time && s.branch == _activeBranchForSlots);
 
       if (existingSlotIdx != -1) {
         if (_selectedSlots[existingSlotIdx].type != _currentTypeMode) {
-          // Update type
           _selectedSlots[existingSlotIdx] = _BranchTimeSlot(
               day: day,
               time: time,
               type: _currentTypeMode,
-              branch: _selectedBranch!);
+              branch: _activeBranchForSlots!);
         } else {
-          // Remove slot
           _selectedSlots.removeAt(existingSlotIdx);
         }
       } else {
-        // Add slot
         _selectedSlots.add(_BranchTimeSlot(
             day: day,
             time: time,
             type: _currentTypeMode,
-            branch: _selectedBranch!));
+            branch: _activeBranchForSlots!));
       }
     });
   }
@@ -112,36 +155,66 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
     final List<dynamic> newResults = [];
 
     try {
-      final res = await _apiService.createFullClass({
-        'name': _courseNameController.text,
-        'code': _courseCodeController.text,
-        'branch': _selectedBranch ?? 'CSE',
-        'year': _selectedCourseYear ?? '1st',
-        'academicYear': _selectedAcademicYear ?? '2023-24',
-        'semester': _selectedSemester ?? '1',
-        'credits': int.tryParse(_selectedCredits ?? '4') ?? 4,
-        'session': _selectedSession ?? 'Autumn',
-        'slots': _selectedSlots.map((s) => s.toJson()).toList(),
-      });
+      for (String branch in _selectedBranches) {
+        final branchSlots = _selectedSlots
+            .where((s) => s.branch == branch)
+            .map((s) => {
+                  'day': s.day,
+                  'time': s.time,
+                  'type': s.type,
+                  'room': null, // Optional
+                })
+            .toList();
 
-      if (res['course'] != null) {
-        newResults.add({
-          'branch': _selectedBranch,
-          'joinCode': res['course']['joinCode'],
+        if (branchSlots.isEmpty) continue;
+
+        final payload = {
           'courseName': _courseNameController.text,
           'courseCode': _courseCodeController.text,
-        });
+          'branch': branch,
+          'degree': _selectedDegree,
+          'year': _selectedCourseYear ?? '1st',
+          'academicYear': _selectedAcademicYear,
+          'semester': _selectedSemester ?? '1',
+          'credits': int.tryParse(_selectedCredits ?? '4') ?? 4,
+          'session': _selectedSession ?? 'Autumn',
+          'timetable': branchSlots,
+        };
+
+        final Map<String, dynamic> res;
+        if (widget.editCourse != null) {
+          res = await _apiService.updateCourseSchedule(
+            courseId: widget.editCourse!.id,
+            payload: payload,
+          );
+        } else {
+          res = await _apiService.createFullClass(payload);
+        }
+
+        if (res['success'] == true) {
+          newResults.add({
+            'branch': branch,
+            'joinCode': (res['course'] != null
+                    ? res['course']['joinCode']
+                    : widget.editCourse?.joinCode) ??
+                'N/A',
+            'courseName': _courseNameController.text,
+            'courseCode': _courseCodeController.text,
+          });
+          // If we are editing, we only update one course
+          if (widget.editCourse != null) break;
+        }
       }
 
       if (newResults.isNotEmpty) {
         setState(() {
           _results = newResults;
-          _currentStep = 4;
+          _currentStep = 5;
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'No classes were created. Check branches and timetable.')));
+            content:
+                Text('No changes were saved. Check branches and timetable.')));
       }
     } catch (e) {
       ScaffoldMessenger.of(context)
@@ -313,7 +386,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
           borderRadius: BorderRadius.circular(28),
         ),
         child: Text(
-          '${_selectedBranch ?? 'Branch'} $text',
+          text,
           textAlign: TextAlign.center,
           style: TextStyle(
             color: isSelected ? Colors.white : const Color(0xFF64748B),
@@ -325,34 +398,94 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
   }
 
   Widget _buildStep1() {
+    List<String> years = ['1st', '2nd'];
+    if (_selectedDegree == 'B.Tech') {
+      years.addAll(['3rd', '4th']);
+    }
+
+    List<String> semesters = [];
+    if (_selectedCourseYear == '1st')
+      semesters = ['1', '2'];
+    else if (_selectedCourseYear == '2nd')
+      semesters = ['3', '4'];
+    else if (_selectedCourseYear == '3rd')
+      semesters = ['5', '6'];
+    else if (_selectedCourseYear == '4th') semesters = ['7', '8'];
+
+    // Validation: if current selection is invalid, reset it
+    if (!years.contains(_selectedCourseYear)) {
+      _selectedCourseYear = years.first;
+    }
+    if (!semesters.contains(_selectedSemester)) {
+      _selectedSemester = semesters.first;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('BASIC INFORMATION', isFirst: true),
+        _buildSectionHeader('COURSE INFORMATION', isFirst: true),
         _buildTextFieldPlain(_courseNameController, 'Course Name'),
         const SizedBox(height: 16),
         _buildTextFieldPlain(_courseCodeController, 'Course Code'),
-        const SizedBox(height: 24),
-        _buildSectionHeader('ACADEMIC DETAILS'),
-        _buildDropdownField('Select Branch', _selectedBranch, _branchesList,
-            (val) => setState(() => _selectedBranch = val)),
+        const SizedBox(height: 16),
+        _buildDropdownField(
+            'Degree',
+            _selectedDegree,
+            ['B.Tech', 'M.Tech'],
+            (val) => setState(() {
+                  _selectedDegree = val;
+                  // Handle year reset if M.Tech selected and currently on 3rd/4th year
+                  if (val == 'M.Tech' &&
+                      (_selectedCourseYear == '3rd' ||
+                          _selectedCourseYear == '4th')) {
+                    _selectedCourseYear = '1st';
+                    _selectedSemester = '1';
+                  }
+                })),
         const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
               child: _buildDropdownField(
-                  'Select Year',
+                  'Year',
                   _selectedCourseYear,
-                  ['1st', '2nd', '3rd', '4th'],
-                  (val) => setState(() => _selectedCourseYear = val)),
+                  years,
+                  (val) => setState(() {
+                        _selectedCourseYear = val;
+                        // Auto-select first semester of that year
+                        if (val == '1st')
+                          _selectedSemester = '1';
+                        else if (val == '2nd')
+                          _selectedSemester = '3';
+                        else if (val == '3rd')
+                          _selectedSemester = '5';
+                        else if (val == '4th') _selectedSemester = '7';
+                      })),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdownField('Semester', _selectedSemester,
+                  semesters, (val) => setState(() => _selectedSemester = val)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildDropdownField(
+                  'Credits',
+                  _selectedCredits,
+                  ['1', '2', '3', '4'],
+                  (val) => setState(() => _selectedCredits = val)),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _buildDropdownField(
-                  'Academic Year',
-                  _selectedAcademicYear,
-                  ['2023-24', '2024-25', '2025-26', '2026-27'],
-                  (val) => setState(() => _selectedAcademicYear = val)),
+                  'Session',
+                  _selectedSession,
+                  ['Autumn', 'Spring'],
+                  (val) => setState(() => _selectedSession = val)),
             ),
           ],
         ),
@@ -364,100 +497,161 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('CLASS CONFIGURATION', isFirst: true),
-        Row(
-          children: [
-            Expanded(
-              child: _buildDropdownField(
-                  'Semester',
-                  _selectedSemester,
-                  ['1', '2', '3', '4', '5', '6', '7', '8'],
-                  (val) => setState(() => _selectedSemester = val)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildDropdownField(
-                  'Credits',
-                  _selectedCredits,
-                  ['1', '2', '3', '4'],
-                  (val) => setState(() => _selectedCredits = val)),
-            ),
-          ],
+        _buildSectionHeader('SELECT BRANCHES', isFirst: true),
+        const Text(
+          'Choose one or more branches for this course.',
+          style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
         ),
-        const SizedBox(height: 16),
-        _buildDropdownField('Session', _selectedSession, ['Autumn', 'Spring'],
-            (val) => setState(() => _selectedSession = val)),
-        const SizedBox(height: 24),
-        _buildSectionHeader('ASSIGN SLOTS'),
-        // Timetable UI...
-        // Mode Toggle (Pill shape)
-        if (_selectedBranch != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _currentTypeMode = 'theory'),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: _currentTypeMode == 'theory'
-                            ? const Color(0xFF0F172A)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                      child: Text(
-                        'Theory',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _currentTypeMode == 'theory'
-                              ? Colors.white
-                              : const Color(0xFF64748B),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
+        const SizedBox(height: 20),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: _branchesList.map((branch) {
+            final isSelected = _selectedBranches.contains(branch);
+            return FilterChip(
+              label: Text(branch),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _selectedBranches.add(branch);
+                  } else {
+                    _selectedBranches.remove(branch);
+                  }
+                });
+              },
+              backgroundColor: Colors.white,
+              showCheckmark: false,
+              selectedColor: const Color(0xFF0F172A),
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : const Color(0xFF64748B),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: isSelected
+                      ? const Color(0xFF0F172A)
+                      : const Color(0xFFE2E8F0),
+                  width: isSelected ? 2 : 1,
                 ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _currentTypeMode = 'lab'),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: _currentTypeMode == 'lab'
-                            ? const Color(0xFF0F172A)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                      child: Text(
-                        'Lab',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _currentTypeMode == 'lab'
-                              ? Colors.white
-                              : const Color(0xFF64748B),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(height: 24),
-        if (_selectedBranch != null) _buildTimeSlotSelector(),
+              ),
+            );
+          }).toList(),
+        ),
       ],
     );
   }
 
   Widget _buildStep3() {
+    if (_activeBranchForSlots == null && _selectedBranches.isNotEmpty) {
+      _activeBranchForSlots = _selectedBranches.first;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('ASSIGN SLOTS', isFirst: true),
+        if (_selectedBranches.length > 1) ...[
+          const Text(
+            'Select a branch to set its timetable:',
+            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _selectedBranches.map((branch) {
+                final isSelected = _activeBranchForSlots == branch;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(branch),
+                    selected: isSelected,
+                    showCheckmark: false,
+                    onSelected: (selected) {
+                      if (selected)
+                        setState(() => _activeBranchForSlots = branch);
+                    },
+                    selectedColor: const Color(0xFF0F172A),
+                    backgroundColor: Colors.white,
+                    labelStyle: TextStyle(
+                      color:
+                          isSelected ? Colors.white : const Color(0xFF64748B),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _currentTypeMode = 'theory'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _currentTypeMode == 'theory'
+                          ? const Color(0xFF0F172A)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    child: Text(
+                      'Theory',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _currentTypeMode == 'theory'
+                            ? Colors.white
+                            : const Color(0xFF64748B),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _currentTypeMode = 'lab'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _currentTypeMode == 'lab'
+                          ? const Color(0xFF0F172A)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    child: Text(
+                      'Lab',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _currentTypeMode == 'lab'
+                            ? Colors.white
+                            : const Color(0xFF64748B),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        _buildTimeSlotSelector(),
+      ],
+    );
+  }
+
+  Widget _buildStep4() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -532,8 +726,8 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
       children: [
         _buildSummaryRow(LucideIcons.book, 'Course',
             '${_courseNameController.text} (${_courseCodeController.text})'),
-        _buildSummaryRow(LucideIcons.graduationCap, 'Academic',
-            '$_selectedBranch - Year $_selectedCourseYear'),
+        _buildSummaryRow(LucideIcons.graduationCap, 'Branches',
+            '${_selectedBranches.join(', ')} - Year $_selectedCourseYear'),
         _buildSummaryRow(LucideIcons.calendar, 'Term',
             'Sem $_selectedSemester, $_selectedSession $_selectedAcademicYear'),
         _buildSummaryRow(LucideIcons.clock, 'Slots',
@@ -749,64 +943,87 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
           itemCount: _timeSlots.length,
           itemBuilder: (context, index) {
             final time = _timeSlots[index];
+
+            // 1. Check if booked in existing courses (from backend)
+            final bookedCourse = _existingCourses.cast<Course?>().firstWhere(
+                  (c) => c!.timetable
+                      .any((t) => t.day == _selectedDay && t.time == time),
+                  orElse: () => null,
+                );
+            final isBookedInDB = bookedCourse != null;
+
+            // 2. Check if assigned to another branch in THIS subject creation
+            final otherBranchesWithThisSlot = _selectedSlots
+                .where((s) =>
+                    s.day == _selectedDay &&
+                    s.time == time &&
+                    s.branch != _activeBranchForSlots)
+                .map((s) => s.branch)
+                .toList();
+            final isAssignedToOther = otherBranchesWithThisSlot.isNotEmpty;
+
             final exists = _selectedSlots.any((s) =>
                 s.day == _selectedDay &&
                 s.time == time &&
-                s.branch == _selectedBranch);
+                s.branch == _activeBranchForSlots);
 
             final currentSlot = exists
                 ? _selectedSlots.firstWhere((s) =>
                     s.day == _selectedDay &&
                     s.time == time &&
-                    s.branch == _selectedBranch)
+                    s.branch == _activeBranchForSlots)
                 : null;
 
             return GestureDetector(
-              onTap: () {
-                setState(() {
-                  if (exists) {
-                    _selectedSlots.removeWhere((s) =>
-                        s.day == _selectedDay &&
-                        s.time == time &&
-                        s.branch == _selectedBranch);
-                  } else {
-                    _selectedSlots.add(_BranchTimeSlot(
-                      day: _selectedDay,
-                      time: time,
-                      type: _currentTypeMode,
-                      branch: _selectedBranch!,
-                    ));
-                  }
-                });
-              },
+              onTap: isBookedInDB
+                  ? null // Disable tap if already booked by another course
+                  : () => _handleSlotClick(_selectedDay, time),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: exists
-                      ? (currentSlot?.type == 'theory'
-                          ? const Color(0xFF2563EB).withOpacity(0.1)
-                          : const Color(0xFF7C3AED).withOpacity(0.1))
-                      : Colors.white,
+                  color: isBookedInDB
+                      ? const Color(0xFFF1F5F9)
+                      : (exists
+                          ? (currentSlot?.type == 'theory'
+                              ? const Color(0xFF2563EB).withOpacity(0.1)
+                              : const Color(0xFF7C3AED).withOpacity(0.1))
+                          : (isAssignedToOther
+                              ? const Color(0xFFF1F5F9)
+                              : Colors.white)),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: exists
-                        ? (currentSlot?.type == 'theory'
-                            ? const Color(0xFF2563EB)
-                            : const Color(0xFF7C3AED))
-                        : const Color(0xFFE2E8F0),
-                    width: exists ? 2 : 1,
+                    color: isBookedInDB
+                        ? const Color(0xFFE2E8F0)
+                        : (exists
+                            ? (currentSlot?.type == 'theory'
+                                ? const Color(0xFF2563EB)
+                                : const Color(0xFF7C3AED))
+                            : (isAssignedToOther
+                                ? const Color(0xFFCBD5E1)
+                                : const Color(0xFFE2E8F0))),
+                    width: exists || isBookedInDB ? 2 : 1,
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      exists ? LucideIcons.checkCircle2 : LucideIcons.circle,
+                      isBookedInDB
+                          ? LucideIcons.lock
+                          : (exists
+                              ? LucideIcons.checkCircle2
+                              : (isAssignedToOther
+                                  ? LucideIcons.info
+                                  : LucideIcons.circle)),
                       size: 16,
-                      color: exists
-                          ? (currentSlot?.type == 'theory'
-                              ? const Color(0xFF2563EB)
-                              : const Color(0xFF7C3AED))
-                          : const Color(0xFFCBD5E1),
+                      color: isBookedInDB
+                          ? const Color(0xFF94A3B8)
+                          : (exists
+                              ? (currentSlot?.type == 'theory'
+                                  ? const Color(0xFF2563EB)
+                                  : const Color(0xFF7C3AED))
+                              : (isAssignedToOther
+                                  ? const Color(0xFF64748B)
+                                  : const Color(0xFFCBD5E1))),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -818,12 +1035,24 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                             time.split(' - ')[0],
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight:
-                                  exists ? FontWeight.bold : FontWeight.normal,
-                              color: const Color(0xFF0F172A),
+                              fontWeight: (exists || isBookedInDB)
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: isBookedInDB
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF0F172A),
                             ),
                           ),
-                          if (exists)
+                          if (isBookedInDB)
+                            Text(
+                              'BOOKED (${bookedCourse.code})',
+                              style: const TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            )
+                          else if (exists)
                             Text(
                               currentSlot?.type.toUpperCase() ?? '',
                               style: TextStyle(
@@ -832,6 +1061,15 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                                 color: currentSlot?.type == 'theory'
                                     ? const Color(0xFF2563EB)
                                     : const Color(0xFF7C3AED),
+                              ),
+                            )
+                          else if (isAssignedToOther)
+                            Text(
+                              'ASSIGNED (${otherBranchesWithThisSlot.join(', ')})',
+                              style: const TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF64748B),
                               ),
                             ),
                         ],
@@ -847,7 +1085,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
     );
   }
 
-  Widget _buildStep4() {
+  Widget _buildStep5() {
     return Column(
       children: [
         const SizedBox(height: 24),
@@ -866,7 +1104,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF0F172A))),
-        const Text('The class has been successfully added to your list.',
+        const Text('The class(es) have been successfully created.',
             style: TextStyle(fontSize: 14, color: Color(0xFF64748B))),
         const SizedBox(height: 32),
         ..._results.map((res) => Container(
@@ -935,7 +1173,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
           children: [
             Row(
               children: [
-                if (_currentStep > 1 && _currentStep < 4)
+                if (_currentStep > 1 && _currentStep < 5)
                   IconButton(
                     icon: const Icon(LucideIcons.chevronLeft),
                     onPressed: _isCreating
@@ -943,17 +1181,16 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                         : () => setState(() => _currentStep--),
                   )
                 else
-                  const SizedBox(
-                      width: 48), // Match IconButton size for symmetry
+                  const SizedBox(width: 48),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text('Add New Class',
                           style: FacultyTextStyles.h2.copyWith(fontSize: 20)),
-                      if (_currentStep < 4)
+                      if (_currentStep < 5)
                         Text(
-                          'STEP $_currentStep OF 3: ${_currentStep == 1 ? "BASIC INFO" : (_currentStep == 2 ? "TIMETABLE" : "REVIEW")}',
+                          'STEP $_currentStep OF 4: ${_currentStep == 1 ? "INFO" : (_currentStep == 2 ? "BRANCHES" : (_currentStep == 3 ? "SLOTS" : "REVIEW"))}',
                           style: const TextStyle(
                             fontSize: 10,
                             letterSpacing: 1,
@@ -974,18 +1211,15 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
             const SizedBox(height: 8),
             Expanded(
               child: SingleChildScrollView(
-                physics:
-                    const ClampingScrollPhysics(), // Prevent elastic scrolling if not needed
+                physics: const ClampingScrollPhysics(),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _currentStep == 1
-                        ? _buildStep1()
-                        : (_currentStep == 2
-                            ? _buildStep2()
-                            : (_currentStep == 3
-                                ? _buildStep3()
-                                : _buildStep4())),
+                    if (_currentStep == 1) _buildStep1(),
+                    if (_currentStep == 2) _buildStep2(),
+                    if (_currentStep == 3) _buildStep3(),
+                    if (_currentStep == 4) _buildStep4(),
+                    if (_currentStep == 5) _buildStep5(),
                   ],
                 ),
               ),
@@ -993,7 +1227,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
             const SizedBox(height: 16),
             Row(
               children: [
-                if (_currentStep > 1 && _currentStep < 4)
+                if (_currentStep > 1 && _currentStep < 5)
                   Expanded(
                     flex: 1,
                     child: OutlinedButton(
@@ -1010,7 +1244,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                           style: TextStyle(color: Color(0xFF64748B))),
                     ),
                   ),
-                if (_currentStep > 1 && _currentStep < 4)
+                if (_currentStep > 1 && _currentStep < 5)
                   const SizedBox(width: 12),
                 Expanded(
                   flex: 2,
@@ -1018,33 +1252,35 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                     onPressed: _isCreating
                         ? null
                         : () {
-                            if (_currentStep < 3) {
+                            if (_currentStep < 4) {
                               if (_currentStep == 1) {
                                 if (_courseNameController.text.isEmpty ||
-                                    _courseCodeController.text.isEmpty ||
-                                    _selectedBranch == null ||
-                                    _selectedCourseYear == null ||
-                                    _selectedAcademicYear == null) {
+                                    _courseCodeController.text.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                           content: Text(
-                                              'Please fill all required fields')));
+                                              'Please enter course details')));
                                   return;
                                 }
                               } else if (_currentStep == 2) {
-                                if (_selectedSemester == null ||
-                                    _selectedCredits == null ||
-                                    _selectedSession == null ||
-                                    _selectedSlots.isEmpty) {
+                                if (_selectedBranches.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                           content: Text(
-                                              'Please configure class and select at least one slot')));
+                                              'Please select at least one branch')));
+                                  return;
+                                }
+                              } else if (_currentStep == 3) {
+                                if (_selectedSlots.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Please assign at least one slot')));
                                   return;
                                 }
                               }
                               setState(() => _currentStep++);
-                            } else if (_currentStep == 3) {
+                            } else if (_currentStep == 4) {
                               _handleSubmit();
                             } else {
                               Navigator.pop(context);
@@ -1063,9 +1299,9 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                             height: 20,
                             child: CircularProgressIndicator(
                                 color: Colors.white, strokeWidth: 2))
-                        : Text(_currentStep < 3
+                        : Text(_currentStep < 4
                             ? 'Next'
-                            : (_currentStep == 3 ? 'Create Class' : 'Done')),
+                            : (_currentStep == 4 ? 'Create Class' : 'Done')),
                   ),
                 ),
               ],

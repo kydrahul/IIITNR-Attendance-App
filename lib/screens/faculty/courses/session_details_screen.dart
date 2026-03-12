@@ -10,6 +10,7 @@ class SessionDetailsScreen extends StatefulWidget {
   final String timeStr;
   final int totalStudents;
   final int presentCount;
+  final String? sessionId;
 
   const SessionDetailsScreen({
     super.key,
@@ -18,6 +19,7 @@ class SessionDetailsScreen extends StatefulWidget {
     required this.timeStr,
     required this.totalStudents,
     required this.presentCount,
+    this.sessionId,
   });
 
   @override

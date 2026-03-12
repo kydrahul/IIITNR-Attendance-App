@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/faculty/faculty_api_service.dart';
 import '../models/faculty/faculty_models.dart';
 
@@ -59,6 +60,27 @@ class LiveSessionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  String _classType = 'Theory';
+  String get classType => _classType;
+  set classType(String val) {
+    _classType = val;
+    notifyListeners();
+  }
+
+  // Room & Proximity Info
+  List<RoomModel> _rooms = [];
+  List<RoomModel> get rooms => _rooms;
+
+  bool _isLoadingRooms = false;
+  bool get isLoadingRooms => _isLoadingRooms;
+
+  bool _isLocationRequired = true;
+  bool get isLocationRequired => _isLocationRequired;
+  set isLocationRequired(bool val) {
+    _isLocationRequired = val;
+    notifyListeners();
+  }
+
   // Timers Data
   Timer? _sessionTimer;
   Timer? _refreshTimer;
@@ -104,13 +126,116 @@ class LiveSessionProvider extends ChangeNotifier {
   }
 
   Future<void> _init() async {
-    await _loadRadius();
-    await _initializeStudents();
+    debugPrint('LiveSessionProvider: Starting parallel initialization...');
+    
+    // We run these in parallel so one slow API doesn't block the others
+    await Future.wait([
+      _loadSettings().then((_) => debugPrint('LiveSessionProvider: Settings loaded')),
+      fetchRooms().then((_) => debugPrint('LiveSessionProvider: Rooms loaded (${_rooms.length})')),
+      _initializeStudents().then((_) => debugPrint('LiveSessionProvider: Students loaded')),
+    ]).catchError((e) {
+      debugPrint('LiveSessionProvider: Initialization error: $e');
+      return []; // Return empty list to satisfy Future.wait
+    });
+    
+    debugPrint('LiveSessionProvider: Initialization complete.');
   }
 
-  Future<void> _loadRadius() async {
+  Future<void> fetchRooms() async {
+    _isLoadingRooms = true;
+    notifyListeners();
+    try {
+      debugPrint('LiveSessionProvider: Calling _apiService.getRooms()...');
+      _rooms = await _apiService.getRooms();
+      debugPrint('LiveSessionProvider: Successfully fetched ${_rooms.length} rooms.');
+    } catch (e) {
+      debugPrint('LiveSessionProvider: Failed to fetch rooms: $e');
+    } finally {
+      _isLoadingRooms = false;
+      notifyListeners();
+    }
+  }
+
+  Future<List<RoomModel>> detectNearestRoom() async {
+    if (!_isLocationRequired) return [];
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception("Location services are disabled.");
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception("Location permission denied.");
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception("Location permissions are permanently denied.");
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+      );
+      
+      List<RoomModel> candidates = [];
+
+      for (var room in _rooms) {
+        final distance = Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          room.latitude,
+          room.longitude,
+        );
+        
+        // Potential candidate if within 30m
+        if (distance < 30) {
+          candidates.add(room);
+        }
+      }
+
+      // Sort by distance if multiple candidates
+      if (candidates.length > 1) {
+        candidates.sort((a, b) {
+          final distA = Geolocator.distanceBetween(position.latitude, position.longitude, a.latitude, a.longitude);
+          final distB = Geolocator.distanceBetween(position.latitude, position.longitude, b.latitude, b.longitude);
+          return distA.compareTo(distB);
+        });
+        return candidates;
+      } else if (candidates.length == 1) {
+        _selectedRoom = candidates.first.name;
+        notifyListeners();
+        return candidates;
+      }
+      
+      return [];
+    } catch (e) {
+      debugPrint('Proximity detection failed: $e');
+      rethrow; // Rethrow to allow UI to show snackbar
+    }
+  }
+
+  Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    
+    // 1. Local overrides (Radius, Interval)
     _locationRadius = prefs.getInt('default_scan_radius') ?? 50;
+    _autoRefreshInterval = prefs.getInt('default_qr_refresh_interval') ?? 10;
+    _qrRefreshCountdown = _autoRefreshInterval;
+
+    // 2. Fetch Profile to get Global Location Preference
+    try {
+      final profile = await _apiService.getProfile();
+      final settings = profile.settings;
+      if (settings.containsKey('defaultIsLocationRequired')) {
+        _isLocationRequired = settings['defaultIsLocationRequired'] == true;
+      }
+    } catch (e) {
+      debugPrint('Failed to load profile settings for location: $e');
+    }
+
     notifyListeners();
   }
 
@@ -159,13 +284,25 @@ class LiveSessionProvider extends ChangeNotifier {
   }
 
   Future<void> generateQR() async {
-    if (_selectedRoom == null) throw Exception("Please select a classroom");
+    if (_isLocationRequired && _selectedRoom == null) throw Exception("Please select a classroom");
+
+    RoomModel? room;
+    if (_selectedRoom != null) {
+      try {
+        room = _rooms.firstWhere((r) => r.name == _selectedRoom);
+      } catch (e) {
+        // Handle custom room name if needed
+      }
+    }
 
     final response = await _apiService.generateQr(
       courseId: course['id']!,
       radius: _locationRadius,
       validitySeconds: _qrDuration * 60,
-      classType: 'Theory',
+      classType: _classType,
+      latitude: room?.latitude,
+      longitude: room?.longitude,
+      isLocationRequired: _isLocationRequired,
     );
 
     final session = AttendanceSession.fromJson(response['session']);
@@ -217,9 +354,8 @@ class LiveSessionProvider extends ChangeNotifier {
     if (_sessionId == null) return;
     try {
       final response = await _apiService.refreshQr(_sessionId!);
-      final session = AttendanceSession.fromJson(response['session']);
-      _qrVersion = session.qrVersion;
-      _qrValue = session.qrData;
+      _qrVersion = response['qrVersion'] ?? (_qrVersion + 1);
+      _qrValue = response['qrData'] ?? _qrValue;
       _qrRefreshCountdown = _autoRefreshInterval;
       notifyListeners();
     } catch (e) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../constants/faculty/faculty_colors.dart';
 import '../../../constants/faculty/faculty_text_styles.dart';
@@ -7,8 +8,11 @@ import '../faculty_weekly_timetable_screen.dart';
 import 'session_details_screen.dart';
 import 'student_stats_screen.dart';
 import 'start_session_screen.dart';
+import 'widgets/join_code_dialog.dart';
 
-class CourseDetailsScreen extends StatelessWidget {
+import '../../../services/faculty/faculty_api_service.dart';
+
+class CourseDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> course;
   final List<Map<String, dynamic>> allCourses;
 
@@ -17,6 +21,58 @@ class CourseDetailsScreen extends StatelessWidget {
     required this.course,
     required this.allCourses,
   });
+
+  @override
+  State<CourseDetailsScreen> createState() => _CourseDetailsScreenState();
+}
+
+class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
+  final FacultyApiService _apiService = FacultyApiService();
+  bool _isLoading = true;
+  List<dynamic> _sessions = [];
+  List<dynamic> _students = [];
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCourseData();
+  }
+
+  Future<void> _fetchCourseData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final courseId = widget.course['id']?.toString() ?? '';
+      if (courseId.isEmpty) throw Exception('Course ID is missing');
+
+      final gridData = await _apiService.getCourseAttendanceGrid(courseId);
+      
+      if (mounted) {
+        setState(() {
+          _sessions = gridData['sessions'] ?? [];
+          // Sort sessions by date descending for activity/overview
+          _sessions.sort((a, b) {
+            final dateA = DateTime.parse(a['date'].toString());
+            final dateB = DateTime.parse(b['date'].toString());
+            return dateB.compareTo(dateA);
+          });
+          _students = gridData['students'] ?? [];
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,13 +92,18 @@ class CourseDetailsScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                course['name']?.toString() ?? 'Unknown Course',
-                style: FacultyTextStyles.h3.copyWith(fontSize: 18),
+                widget.course['name']?.toString() ?? 'Unknown Course',
+                style: GoogleFonts.montserrat(
+                  color: FacultyColors.black,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               Text(
-                '${course['code']} • ${course['branch']}',
-                style: FacultyTextStyles.bodySmall.copyWith(
+                '${widget.course['code']}  |  ${widget.course['degree'] ?? 'B.Tech'}  |  ${widget.course['academicYear']?.toString().toLowerCase().contains('year') == true ? widget.course['academicYear'] : "${widget.course['academicYear'] ?? 'N/A'} Year"}  |  ${widget.course['credits'] ?? '3'} Credits',
+                style: GoogleFonts.roboto(
                   color: FacultyColors.gray500,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -61,10 +122,31 @@ class CourseDetailsScreen extends StatelessWidget {
             ],
           ),
           actions: [
-            IconButton(
-              icon: const Icon(LucideIcons.settings,
+            PopupMenuButton<String>(
+              icon: const Icon(LucideIcons.moreVertical,
                   color: FacultyColors.gray500, size: 20),
-              onPressed: () {},
+              onSelected: (value) {
+                if (value == 'join_code') {
+                  JoinCodeDialog.show(
+                    context,
+                    widget.course['name']?.toString() ?? 'Course',
+                    widget.course['code']?.toString() ?? '',
+                    widget.course['joinCode']?.toString() ?? '',
+                  );
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'join_code',
+                  child: Row(
+                    children: [
+                      Icon(LucideIcons.key, size: 16, color: FacultyColors.gray600),
+                      SizedBox(width: 8),
+                      Text('Show Joining Code', style: TextStyle(fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -73,7 +155,7 @@ class CourseDetailsScreen extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => StartSessionScreen(course: course),
+                builder: (context) => StartSessionScreen(course: widget.course),
               ),
             );
           },
@@ -86,13 +168,39 @@ class CourseDetailsScreen extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   fontSize: 14)),
         ),
-        body: TabBarView(
-          children: [
-            _OverviewTab(course: course, allCourses: allCourses),
-            _AttendanceTab(course: course),
-            _StudentsTab(course: course),
-          ],
-        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _errorMessage != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(LucideIcons.alertCircle, color: FacultyColors.red600, size: 48),
+                        const SizedBox(height: 16),
+                        Text('Error: $_errorMessage', style: const TextStyle(color: FacultyColors.red600)),
+                        const SizedBox(height: 16),
+                        ElevatedButton(onPressed: _fetchCourseData, child: const Text('Retry')),
+                      ],
+                    ),
+                  )
+                : TabBarView(
+                    children: [
+            _OverviewTab(
+              course: widget.course,
+              allCourses: widget.allCourses,
+              sessions: _sessions,
+              studentCount: _students.length,
+            ),
+            _AttendanceTab(
+              course: widget.course,
+              sessions: _sessions,
+            ),
+            _StudentsTab(
+              course: widget.course,
+              students: _students,
+            ),
+                    ],
+                  ),
       ),
     );
   }
@@ -101,7 +209,15 @@ class CourseDetailsScreen extends StatelessWidget {
 class _OverviewTab extends StatelessWidget {
   final Map<String, dynamic> course;
   final List<Map<String, dynamic>> allCourses;
-  const _OverviewTab({required this.course, required this.allCourses});
+  final List<dynamic> sessions;
+  final int studentCount;
+
+  const _OverviewTab({
+    required this.course,
+    required this.allCourses,
+    required this.sessions,
+    required this.studentCount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -126,17 +242,42 @@ class _OverviewTab extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        _buildActivityItem(
-            context, 'Monday, 8 Mar', '9:30 AM - 10:30 AM', '42/50', true),
-        _buildActivityItem(
-            context, 'Friday, 5 Mar', '2:30 PM - 3:30 PM', '38/50', false),
-        _buildActivityItem(
-            context, 'Wednesday, 3 Mar', '11:30 AM - 12:30 PM', '45/50', true),
+        if (sessions.isEmpty)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Text('No recent activity yet', style: TextStyle(color: FacultyColors.gray500)),
+            ),
+          )
+        else
+          ...sessions.take(5).map((session) {
+            // Calculate attendance ratio if available
+            // In the grid data, we'd need to count how many students were present in this session
+            // But for simplicity in the overview, we can just show session details
+            final date = DateTime.tryParse(session['date']?.toString() ?? '') ?? DateTime.now();
+            final dateStr = '${date.day} ${_getMonth(date.month)}';
+            return _buildActivityItem(
+              context,
+              dateStr,
+              session['startTime']?.toString() ?? 'N/A',
+              'Room ${session['roomNumber'] ?? 'N/A'}',
+              false, // Mock lab status for now
+            );
+          }),
       ],
     );
   }
 
+  String _getMonth(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
+
   Widget _buildQuickOverviewCard(BuildContext context) {
+    final String acadYear = (course['academicYear']?.toString() ?? 'N/A');
+    final String sem = _getOrdinal(course['semester']?.toString() ?? 'N/A');
+    final String sessionStr = course['session']?.toString() ?? 'Autumn';
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -156,118 +297,103 @@ class _OverviewTab extends StatelessWidget {
         children: [
           Row(
             children: [
-              _buildCompactMetric(LucideIcons.users, 'Enrolled',
-                  (course['students'] ?? 0).toString(), FacultyColors.blue600),
-              _buildDivider(),
-              _buildCompactMetric(LucideIcons.award, 'Credits',
-                  (course['credits'] ?? 0).toString(), FacultyColors.yellow700),
-              _buildDivider(),
-              _buildCompactMetric(
-                  LucideIcons.calendar,
-                  'Year',
-                  (course['year']?.toString() ?? 'N/A').split(' ')[0],
-                  FacultyColors.primary),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
+              _buildCompactMetric(LucideIcons.users, 'STUDENTS',
+                  studentCount.toString(), FacultyColors.blue600),
+              _buildVerticalDivider(),
               _buildCompactMetric(
                   LucideIcons.layers,
-                  'Semester',
-                  course['semester']?.toString() ?? 'N/A',
-                  FacultyColors.green600),
-              _buildDivider(),
+                   'SEMESTER',
+                  sem,
+                   FacultyColors.green600),
+              _buildVerticalDivider(),
               _buildCompactMetric(
-                  LucideIcons.history,
-                  'Acad Year',
-                  course['academicYear']?.toString() ?? '2023-24',
-                  FacultyColors.blue500),
-              _buildDivider(),
-              _buildCompactMetric(
-                  LucideIcons.clock,
-                  'Session',
-                  (course['session']?.toString() ?? 'Autumn').split(' ')[0],
-                  FacultyColors.gray600),
+                  LucideIcons.briefcase,
+                   'BRANCH',
+                  course['department']?.toString() ?? course['branch']?.toString() ?? 'N/A',
+                  FacultyColors.gray500),
             ],
           ),
           const SizedBox(height: 24),
           const Divider(height: 1, color: FacultyColors.gray100),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           InkWell(
             onTap: () {
-              // Convert mock data maps to Course model objects with robust type handling
-              final List<fm.Course> coursesList = allCourses.map((c) {
-                return fm.Course(
-                  id: (c['id'] ?? '').toString(),
-                  code: (c['code'] ?? '').toString(),
-                  name: (c['name'] ?? '').toString(),
-                  section: (c['section'] ?? 'A').toString(),
-                  enrolledCount:
-                      int.tryParse(c['students']?.toString() ?? '0') ?? 0,
-                  joinCode: (c['joinCode'] ?? '').toString(),
-                  department: (c['branch'] ?? '').toString(),
-                  academicYear: (c['academicYear'] ?? '2023-24').toString(),
-                  credits: int.tryParse(c['credits']?.toString() ?? '3') ?? 3,
-                  semester: (c['semester'] ?? '1').toString(),
-                  session: (c['session'] ?? 'Autumn').toString(),
-                  timetable: [
-                    fm.TimetableSlot(
-                        day: 'Monday',
-                        time: '09:00 AM',
-                        type: 'theory',
-                        room: 'LT-1'),
-                    fm.TimetableSlot(
-                        day: 'Wednesday',
-                        time: '11:00 AM',
-                        type: 'theory',
-                        room: 'LT-1'),
-                  ],
-                );
-              }).toList();
+              final fm.Course currentCourse = fm.Course(
+                id: (course['id'] ?? '').toString(),
+                code: (course['code'] ?? '').toString(),
+                name: (course['name'] ?? '').toString(),
+                section: (course['section'] ?? 'A').toString(),
+                enrolledCount: studentCount,
+                joinCode: (course['joinCode'] ?? '').toString(),
+                department: (course['department'] ?? course['branch'] ?? '').toString(),
+                academicYear: acadYear,
+                credits: int.tryParse(course['credits']?.toString() ?? '3') ?? 3,
+                semester: (course['semester'] ?? '').toString(),
+                session: sessionStr,
+                timetable: (course['timetable'] as List?)
+                    ?.map((t) => fm.TimetableSlot.fromJson(t))
+                    .toList() ?? [],
+              );
 
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => FacultyWeeklyTimetableScreen(
-                    courses: coursesList,
-                    highlightCourseCode: (course['code'] ?? '').toString(),
+                    courses: [currentCourse],
+                    highlightCourseCode: currentCourse.code,
                   ),
                 ),
               );
             },
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: FacultyColors.blue50,
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFFEFF6FF), // Very light blue
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(LucideIcons.calendar,
-                      size: 20, color: FacultyColors.blue600),
+                      size: 24, color: Color(0xFF2563EB)), // Primary blue
                 ),
                 const SizedBox(width: 16),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Next Class',
+                      const Text('NEXT CLASS',
                           style: TextStyle(
-                              color: FacultyColors.gray500,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500)),
-                      Text('Tomorrow, 09:00 AM - 10:00 AM',
-                          style: TextStyle(
-                              color: FacultyColors.black,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold)),
+                              color: FacultyColors.gray400,
+                              letterSpacing: 0.5,
+                              fontFamily: 'Roboto',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      ...(() {
+                        final info = _getNextClassInfo(course);
+                        final parts = info.split('|');
+                        final dayStr = parts[0];
+                        final timeStr = parts.length > 1 ? parts[1] : '';
+                        return [
+                          Text(dayStr,
+                              style: GoogleFonts.montserrat(
+                                  color: FacultyColors.black,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600)),
+                          if (timeStr.isNotEmpty)
+                             Text(timeStr,
+                              style: GoogleFonts.roboto(
+                                  color: FacultyColors.gray500,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500)),
+                        ];
+                      })(),
                     ],
                   ),
                 ),
                 const Icon(LucideIcons.chevronRight,
-                    size: 18, color: FacultyColors.gray400),
+                    size: 20, color: FacultyColors.gray300),
               ],
             ),
           ),
@@ -276,12 +402,62 @@ class _OverviewTab extends StatelessWidget {
     );
   }
 
-  Widget _buildDivider() {
+  String _getOrdinal(String n) {
+    if (n == 'N/A') return n;
+    final i = int.tryParse(n);
+    if (i == null) return n;
+    if (i % 100 >= 11 && i % 100 <= 13) return '${i}th';
+    switch (i % 10) {
+      case 1:
+        return '${i}st';
+      case 2:
+        return '${i}nd';
+      case 3:
+        return '${i}rd';
+      default:
+        return '${i}th';
+    }
+  }
+
+  String _getNextClassInfo(Map<String, dynamic> courseData) {
+    try {
+      final timetable = courseData['timetable'] as List?;
+      if (timetable == null || timetable.isEmpty) return 'No schedule set';
+
+      final now = DateTime.now();
+      final List<String> days = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday'
+      ];
+
+      for (int i = 0; i < 7; i++) {
+        final checkDayIndex = (now.weekday - 1 + i) % 7;
+        final checkDayName = days[checkDayIndex];
+        final daySlots =
+            timetable.where((s) => s['day'] == checkDayName).toList();
+
+        if (daySlots.isNotEmpty) {
+          final prefix = i == 0 ? 'Today' : (i == 1 ? 'Tomorrow' : checkDayName);
+          return '$prefix|${daySlots.first['time']}';
+        }
+      }
+      return 'No upcoming classes';
+    } catch (e) {
+      return 'Check schedule';
+    }
+  }
+
+   Widget _buildVerticalDivider() {
     return Container(
       height: 32,
       width: 1,
       color: FacultyColors.gray100,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 12),
     );
   }
 
@@ -296,16 +472,21 @@ class _OverviewTab extends StatelessWidget {
               Icon(icon, size: 14, color: color),
               const SizedBox(width: 6),
               Text(label,
-                  style: const TextStyle(
-                      color: FacultyColors.gray500,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500)),
+                  style: GoogleFonts.roboto(
+                      color: FacultyColors.gray400,
+                      fontSize: 9,
+                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w600)),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(value,
-              style: FacultyTextStyles.h2
-                  .copyWith(fontSize: 18, color: FacultyColors.black)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.montserrat(
+                  color: FacultyColors.black,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -384,22 +565,43 @@ class _OverviewTab extends StatelessWidget {
 
 class _AttendanceTab extends StatelessWidget {
   final Map<String, dynamic> course;
-  const _AttendanceTab({required this.course});
+  final List<dynamic> sessions;
+
+  const _AttendanceTab({
+    required this.course,
+    required this.sessions,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (sessions.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(LucideIcons.calendar, size: 48, color: FacultyColors.gray300),
+            const SizedBox(height: 16),
+            const Text('No sessions recorded for this course yet.',
+                style: TextStyle(color: FacultyColors.gray500)),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.all(24),
-      itemCount: 10,
+      itemCount: sessions.length,
       itemBuilder: (context, index) {
-        return _buildSessionCard(context, index);
+        return _buildSessionCard(context, sessions[index]);
       },
     );
   }
 
-  Widget _buildSessionCard(BuildContext context, int index) {
-    final date = DateTime.now().subtract(Duration(days: index * 2));
+  Widget _buildSessionCard(BuildContext context, dynamic session) {
+    final date = DateTime.tryParse(session['date']?.toString() ?? '') ?? DateTime.now();
     final String dateStr = '${date.day} ${_getMonth(date.month)} ${date.year}';
+    final String startTime = session['startTime']?.toString() ?? 'N/A';
+    final String room = session['roomNumber']?.toString() ?? 'N/A';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -421,33 +623,21 @@ class _AttendanceTab extends StatelessWidget {
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 2),
-                  const Text('Lecture Session • 1 hour',
+                  const Text('Lecture Session',
                       style: TextStyle(
                           color: FacultyColors.gray500, fontSize: 12)),
                 ],
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: FacultyColors.green50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text('85%',
-                    style: TextStyle(
-                        color: FacultyColors.green700,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12)),
-              ),
+              // Note: Percentage and metrics would ideally come from the grid summary
+              // For now, we show the room and time info clearly
             ],
           ),
           const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildMetric('Present', '42', FacultyColors.green600),
-              _buildMetric('Absent', '8', FacultyColors.red600),
-              _buildMetric('Total', '50', FacultyColors.gray600),
+              _buildMetric('Time', startTime, FacultyColors.blue600),
+              _buildMetric('Room', room, FacultyColors.gray600),
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(
@@ -456,9 +646,10 @@ class _AttendanceTab extends StatelessWidget {
                       builder: (context) => SessionDetailsScreen(
                         course: course,
                         dateStr: dateStr,
-                        timeStr: '9:30 AM - 10:30 AM', // Mock time
-                        totalStudents: 50,
-                        presentCount: 42,
+                        timeStr: startTime,
+                        totalStudents: 0, 
+                        presentCount: 0,
+                        sessionId: session['id']?.toString(),
                       ),
                     ),
                   );
@@ -513,17 +704,45 @@ class _AttendanceTab extends StatelessWidget {
   }
 }
 
-class _StudentsTab extends StatelessWidget {
+class _StudentsTab extends StatefulWidget {
   final Map<String, dynamic> course;
-  const _StudentsTab({required this.course});
+  final List<dynamic> students;
+
+  const _StudentsTab({
+    required this.course,
+    required this.students,
+  });
+
+  @override
+  State<_StudentsTab> createState() => _StudentsTabState();
+}
+
+class _StudentsTabState extends State<_StudentsTab> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final filteredStudents = widget.students.where((s) {
+      final name = s['name']?.toString().toLowerCase() ?? '';
+      final rollNo = s['rollNo']?.toString().toLowerCase() ?? '';
+      final query = _searchQuery.toLowerCase();
+      return name.contains(query) || rollNo.contains(query);
+    }).toList();
+
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
           child: TextField(
+            controller: _searchController,
+            onChanged: (val) => setState(() => _searchQuery = val),
             decoration: InputDecoration(
               hintText: 'Search Students...',
               prefixIcon: const Icon(LucideIcons.search,
@@ -542,20 +761,24 @@ class _StudentsTab extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(24),
-            itemCount: 15,
-            itemBuilder: (context, index) {
-              return _buildStudentTile(context, index);
-            },
-          ),
+          child: filteredStudents.isEmpty
+              ? const Center(child: Text('No students found'))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(24),
+                  itemCount: filteredStudents.length,
+                  itemBuilder: (context, index) {
+                    return _buildStudentTile(context, filteredStudents[index]);
+                  },
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildStudentTile(BuildContext context, int index) {
-    final attendance = 70 + (index * 2) % 30; // Mock attendance %
+  Widget _buildStudentTile(BuildContext context, dynamic student) {
+    final attendance = student['attendancePercentage'] ?? 0;
+    final name = student['name'] ?? 'Unknown';
+    final rollNo = student['rollNo'] ?? 'N/A';
     final statusColor = attendance > 85
         ? FacultyColors.green600
         : (attendance > 75 ? FacultyColors.primary : FacultyColors.red600);
@@ -566,9 +789,9 @@ class _StudentsTab extends StatelessWidget {
           context,
           MaterialPageRoute(
             builder: (context) => StudentStatsScreen(
-              studentName: 'Student Name ${index + 1}',
-              rollNo: '2022CSB0${65 + index}',
-              courseName: course['name'] ?? 'Course',
+              studentName: name,
+              rollNo: rollNo,
+              courseName: widget.course['name'] ?? 'Course',
             ),
           ),
         );
@@ -587,7 +810,7 @@ class _StudentsTab extends StatelessWidget {
               backgroundColor: FacultyColors.blue50,
               radius: 20,
               child: Text(
-                '${65 + index}', // Mock roll number last digits
+                rollNo.length > 2 ? rollNo.substring(rollNo.length - 2) : rollNo,
                 style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -599,10 +822,10 @@ class _StudentsTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Student Name ${index + 1}',
+                  Text(name,
                       style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 14)),
-                  Text('Roll: 2022CSB0${65 + index}',
+                  Text('Roll: $rollNo',
                       style: const TextStyle(
                           color: FacultyColors.gray500, fontSize: 11)),
                 ],

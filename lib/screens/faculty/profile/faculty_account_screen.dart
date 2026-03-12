@@ -4,6 +4,7 @@ import '../../../constants/faculty/faculty_colors.dart';
 import '../../../constants/faculty/faculty_text_styles.dart';
 import '../../../services/faculty/faculty_api_service.dart';
 import '../../../services/auth_service.dart';
+import '../../../models/faculty/faculty_models.dart';
 
 class FacultyAccountScreen extends StatefulWidget {
   const FacultyAccountScreen({super.key});
@@ -16,7 +17,7 @@ class _FacultyAccountScreenState extends State<FacultyAccountScreen> {
   final FacultyApiService _apiService = FacultyApiService();
   final AuthService _authService = AuthService();
 
-  Map<String, dynamic>? _profileData;
+  FacultyProfile? _facultyProfile;
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -31,7 +32,7 @@ class _FacultyAccountScreenState extends State<FacultyAccountScreen> {
       final profile = await _apiService.getProfile();
       if (mounted) {
         setState(() {
-          _profileData = profile;
+          _facultyProfile = profile;
           _isLoading = false;
           _errorMessage = null;
         });
@@ -142,7 +143,7 @@ class _FacultyAccountScreenState extends State<FacultyAccountScreen> {
                                   child: ClipOval(
                                     child: Image.network(
                                       _authService.currentUser?.photoURL ??
-                                          "https://api.dicebear.com/7.x/avataaars/svg?seed=${Uri.encodeComponent(_profileData?['name'] ?? 'Faculty')}",
+                                          "https://api.dicebear.com/7.x/avataaars/svg?seed=${Uri.encodeComponent(_facultyProfile?.name ?? 'Faculty')}",
                                       fit: BoxFit.cover,
                                       errorBuilder:
                                           (context, error, stackTrace) =>
@@ -155,12 +156,12 @@ class _FacultyAccountScreenState extends State<FacultyAccountScreen> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                _profileData?['name'] ?? 'N/A',
+                                _facultyProfile?.name ?? 'N/A',
                                 style: FacultyTextStyles.h1
                                     .copyWith(fontWeight: FontWeight.bold),
                               ),
                               Text(
-                                _profileData?['department'] ?? 'N/A',
+                                _facultyProfile?.department ?? 'N/A',
                                 style: FacultyTextStyles.bodyMedium.copyWith(
                                     color: FacultyColors.gray500,
                                     fontWeight: FontWeight.w500),
@@ -185,19 +186,18 @@ class _FacultyAccountScreenState extends State<FacultyAccountScreen> {
                                 children: [
                                   _buildDetailRow(
                                       "Faculty ID",
-                                      _profileData?['facultyId']?.toString() ??
-                                          'N/A'),
+                                      _facultyProfile?.facultyId ?? 'N/A'),
                                   _buildDivider(),
                                   _buildDetailRow("Department",
-                                      _profileData?['department'] ?? 'N/A'),
+                                      _facultyProfile?.department ?? 'N/A'),
                                   _buildDivider(),
                                   _buildDetailRow("Designation",
-                                      _profileData?['designation'] ?? 'N/A'),
+                                      _facultyProfile?.position ?? 'N/A'),
                                   _buildDivider(),
                                   _buildDetailRow(
                                       "Email",
                                       _authService.currentUser?.email ??
-                                          _profileData?['email'] ??
+                                          _facultyProfile?.email ??
                                           'N/A'),
                                 ],
                               ),

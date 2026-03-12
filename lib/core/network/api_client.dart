@@ -40,6 +40,12 @@ class ApiClient {
     return _request('DELETE', endpoint, useToken: useToken);
   }
 
+  /// Generic PUT request
+  Future<dynamic> put(String endpoint,
+      {Map<String, dynamic>? body, bool useToken = true}) async {
+    return _request('PUT', endpoint, body: body, useToken: useToken);
+  }
+
   Future<dynamic> _request(String method, String endpoint,
       {Map<String, dynamic>? body, bool useToken = true}) async {
     final url = Uri.parse('${AppConfig.baseUrl}$endpoint');
@@ -80,6 +86,11 @@ class ApiClient {
       } else if (method == 'DELETE') {
         response = await http
             .delete(url, headers: headers)
+            .timeout(const Duration(seconds: 30));
+      } else if (method == 'PUT') {
+        response = await http
+            .put(url,
+                headers: headers, body: body != null ? json.encode(body) : null)
             .timeout(const Duration(seconds: 30));
       } else {
         throw Exception('Unsupported HTTP method');

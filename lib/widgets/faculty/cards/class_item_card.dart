@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+
 import '../../../constants/faculty/faculty_colors.dart';
 import '../../../constants/faculty/faculty_text_styles.dart';
 
@@ -11,6 +11,9 @@ class ClassItemCard extends StatelessWidget {
   final String instructor;
   final int credits;
   final int attendance;
+  final String? degree;
+  final String? year;
+  final String? semester;
   final VoidCallback? onTap;
 
   const ClassItemCard({
@@ -22,16 +25,19 @@ class ClassItemCard extends StatelessWidget {
     required this.instructor,
     required this.credits,
     required this.attendance,
+    this.degree,
+    this.year,
+    this.semester,
     this.onTap,
   });
 
   Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Present':
+    switch (status.toLowerCase()) {
+      case 'done':
         return FacultyColors.green700;
-      case 'Absent':
-        return FacultyColors.red700;
-      case 'Upcoming':
+      case 'live':
+        return FacultyColors.green700;
+      case 'upcoming':
         return FacultyColors.blue700;
       default:
         return FacultyColors.gray600;
@@ -39,150 +45,91 @@ class ClassItemCard extends StatelessWidget {
   }
 
   Color _getStatusBg(String status) {
-    switch (status) {
-      case 'Present':
+    switch (status.toLowerCase()) {
+      case 'done':
         return FacultyColors.green50;
-      case 'Absent':
-        return FacultyColors.red50;
-      case 'Upcoming':
+      case 'live':
+        return FacultyColors.green50;
+      case 'upcoming':
         return FacultyColors.blue50;
       default:
         return FacultyColors.gray50;
     }
   }
 
+  String _getOrdinal(String? sem) {
+    if (sem == null || sem.isEmpty) return 'N/A';
+    int n = int.tryParse(sem) ?? 0;
+    if (n == 0) return sem;
+    if (n % 10 == 1 && n % 100 != 11) return "${n}st Semester";
+    if (n % 10 == 2 && n % 100 != 12) return "${n}nd Semester";
+    if (n % 10 == 3 && n % 100 != 13) return "${n}rd Semester";
+    return "${n}th Semester";
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Time Column
-          SizedBox(
-            width: 60,
-            child: Column(
+    final String yearDisplay = (year?.toLowerCase().contains('year') == true)
+        ? (year ?? 'N/A')
+        : '${year ?? 'N/A'} Year';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: FacultyColors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: FacultyColors.gray100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(startTime,
-                    style: FacultyTextStyles.body.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: FacultyColors.gray800,
-                        fontSize: 14)),
-                Text(endTime, style: FacultyTextStyles.label),
-                if (status == 'Upcoming') ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: FacultyColors.blue500,
-                      shape: BoxShape.circle,
-                      border:
-                          Border.all(color: FacultyColors.blue100, width: 2),
+                Expanded(
+                  child: Text(
+                    subject,
+                    style: FacultyTextStyles.h4.copyWith(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: FacultyColors.gray900,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
+                ),
+                const Icon(
+                  Icons.more_horiz,
+                  size: 16,
+                  color: FacultyColors.gray300,
+                ),
               ],
             ),
-          ),
-
-          const SizedBox(width: 16),
-
-          // Card
-          Expanded(
-            child: GestureDetector(
-              onTap: onTap,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: FacultyColors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: FacultyColors.gray100),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(subject, style: FacultyTextStyles.h4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _getStatusBg(status),
-                            borderRadius: BorderRadius.circular(100),
-                            border: Border.all(
-                                color: _getStatusBg(status).withOpacity(
-                                    0.5)), // slightly darker border
-                          ),
-                          child: Text(
-                            status,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: _getStatusColor(status),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(instructor,
-                        style: FacultyTextStyles.bodySmall.copyWith(
-                            color: FacultyColors.gray500,
-                            fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.only(top: 12),
-                      decoration: const BoxDecoration(
-                        border: Border(
-                            top: BorderSide(color: FacultyColors.gray50)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              _buildStat("CREDITS", credits.toString()),
-                              Container(
-                                width: 1,
-                                height: 24,
-                                color: FacultyColors.gray100,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 12),
-                              ),
-                              _buildStat(
-                                "ATTENDANCE",
-                                "$attendance%",
-                                valueColor: attendance < 75
-                                    ? FacultyColors.red500
-                                    : FacultyColors.green600,
-                              ),
-                            ],
-                          ),
-                          if (status == 'Upcoming')
-                            const Icon(LucideIcons.chevronRight,
-                                size: 16, color: FacultyColors.gray300),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+            const SizedBox(height: 8),
+            Text(
+              '${degree ?? 'B.Tech'}  |  $yearDisplay  |  ${_getOrdinal(semester)}',
+              style: FacultyTextStyles.bodySmall.copyWith(
+                color: FacultyColors.gray500,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+
 
   Widget _buildStat(String label, String value, {Color? valueColor}) {
     return Column(

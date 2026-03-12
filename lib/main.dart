@@ -14,6 +14,7 @@ import 'services/auth_service.dart';
 import 'services/biometric_service.dart';
 import 'screens/common/splash_screen.dart';
 import 'screens/faculty/faculty_main_scaffold.dart';
+import 'screens/faculty/profile/profile_completion_screen.dart';
 import 'utils/global_error_handler.dart';
 
 void main() async {
@@ -74,16 +75,16 @@ class _StudentAppState extends State<StudentApp> with WidgetsBindingObserver {
       }
 
       // App came to foreground - verify auth again
-      // Only redirect if NOT already on splash screen or login/setup
-      // But simple way: just push Splash Screen if user is supposed to be logged in
       final authService = AuthService();
       if (authService.currentUser != null) {
-        // We are logged in, so verify again
-        // Use navigator key if available, or just rely on context if we had one global
-        // Since we are at Root, we need a GlobalKey<NavigatorState> to navigate from here.
-        // Let's assume standard navigation for now or add GlobalKey.
-        navigatorKey.currentState
-            ?.pushNamedAndRemoveUntil('/', (route) => false);
+        // Use a local helper to check role and navigate
+        () async {
+          final role = await authService.getUserRole();
+          if (role == 'student') {
+            navigatorKey.currentState
+                ?.pushNamedAndRemoveUntil('/', (route) => false);
+          }
+        }();
       }
     }
   }
@@ -117,6 +118,8 @@ class _StudentAppState extends State<StudentApp> with WidgetsBindingObserver {
           '/attendance-history': (context) => const AttendanceHistoryScreen(),
           '/home': (context) => const HomeScreen(),
           '/faculty-home': (context) => const FacultyMainScaffold(),
+          '/faculty-profile-completion': (context) =>
+              const FacultyProfileCompletionScreen(),
         },
         onUnknownRoute: (settings) {
           return MaterialPageRoute(

@@ -59,73 +59,13 @@ class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
   Future<void> _loadCourses() async {
     try {
       final courses = await _apiService.listCourses();
-      if (courses.isEmpty) {
-        // Fallback mock courses for testing/visibility if backend is empty
-        courses.addAll([
-          Course(
-            id: 'mock_1',
-            code: 'CS301',
-            name: 'Data Structures & Algorithms',
-            section: 'A',
-            enrolledCount: 68,
-            timetable: [
-              TimetableSlot(
-                  day: _getCurrentDayString(), time: '10:00 AM', type: 'theory')
-            ],
-            joinCode: 'CS301-A',
-            department: 'CSE',
-            academicYear: '2023-24',
-            credits: 4,
-            semester: '3',
-            session: 'Autumn 2023',
-          ),
-          Course(
-            id: 'mock_2',
-            code: 'AI201',
-            name: 'Intro to AI',
-            section: 'A',
-            enrolledCount: 80,
-            timetable: [
-              TimetableSlot(
-                  day: _getCurrentDayString(), time: '02:00 PM', type: 'theory')
-            ],
-            joinCode: 'AI201-A',
-            department: 'DSAI',
-            academicYear: '2023-24',
-            credits: 3,
-            semester: '1',
-            session: 'Autumn 2023',
-          ),
-        ]);
-      }
       if (mounted) {
         setState(() => _courses = courses);
       }
     } catch (e) {
       debugPrint('Error loading courses: $e');
       if (mounted) {
-        // Fallback completely if API fails
-        setState(() => _courses = [
-              Course(
-                id: 'mock_1',
-                code: 'CS301',
-                name: 'Data Structures & Algorithms',
-                section: 'A',
-                enrolledCount: 68,
-                timetable: [
-                  TimetableSlot(
-                      day: _getCurrentDayString(),
-                      time: '10:00 AM',
-                      type: 'theory')
-                ],
-                joinCode: 'CS301-A',
-                department: 'CSE',
-                academicYear: '2023-24',
-                credits: 4,
-                semester: '3',
-                session: 'Autumn 2023',
-              ),
-            ]);
+        setState(() => _courses = []);
       }
     }
   }
@@ -455,6 +395,9 @@ class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
   }
 
   Widget _buildDisabledState() {
+    if (_courses.isEmpty) {
+      return _buildNoCoursesState();
+    }
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
       children: [
@@ -462,6 +405,41 @@ class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
         const SizedBox(height: 32),
         _buildLastSession(),
       ],
+    );
+  }
+
+  Widget _buildNoCoursesState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: FacultyColors.gray50,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(LucideIcons.book,
+                  size: 48, color: FacultyColors.gray400),
+            ),
+            const SizedBox(height: 24),
+            Text("No Courses Available",
+                style:
+                    FacultyTextStyles.h3.copyWith(color: FacultyColors.gray900)),
+            const SizedBox(height: 12),
+            Text(
+              "You haven't created any courses yet. Switch to the Courses tab to add your first course and start tracking attendance.",
+              textAlign: TextAlign.center,
+              style: FacultyTextStyles.bodyMedium.copyWith(
+                color: FacultyColors.gray500,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -529,79 +507,90 @@ class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
     );
   }
 
+  String _getTodayTiming(Course course) {
+    final today = _getCurrentDayString();
+    try {
+      final slot = course.timetable.firstWhere((t) => t.day == today);
+      return slot.time;
+    } catch (_) {
+      return course.timetable.isNotEmpty ? course.timetable.first.time : 'No timing';
+    }
+  }
+
   Widget _buildQuickPickCard(Course course) {
+    final String yearDisplay = (course.academicYear.toLowerCase().contains('year') == true)
+        ? course.academicYear
+        : '${course.academicYear} Year';
+
     return GestureDetector(
       onTap: () => _onCourseChanged(course),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: FacultyColors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: FacultyColors.blue100),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: FacultyColors.gray100),
           boxShadow: [
             BoxShadow(
-              color: FacultyColors.primary.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             )
           ],
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: FacultyColors.blue50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(LucideIcons.clock,
-                  color: FacultyColors.primary, size: 24),
-            ),
-            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    [
-                      if (course.department.isNotEmpty) course.department,
-                      if (course.semester != null &&
-                          course.semester!.isNotEmpty)
-                        'Semester ${course.semester}'
-                    ].join(' - '),
-                    style: FacultyTextStyles.h3
-                        .copyWith(color: FacultyColors.gray900),
-                  ),
-                  Text(
-                    [
-                      if (course.academicYear.isNotEmpty) course.academicYear,
-                      if (course.session != null && course.session!.isNotEmpty)
-                        course.session
-                    ].join(' - '),
-                    style: FacultyTextStyles.bodySmall
-                        .copyWith(color: FacultyColors.gray600),
-                  ),
-                  Text(
                     course.name,
-                    style: FacultyTextStyles.bodySmall
-                        .copyWith(color: FacultyColors.gray500),
+                    style: FacultyTextStyles.h4.copyWith(
+                      color: FacultyColors.gray900,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${course.degree ?? 'B.Tech'}  |  $yearDisplay  |  Sem ${course.semester ?? 'N/A'}',
+                    style: FacultyTextStyles.bodySmall.copyWith(
+                      color: FacultyColors.gray500,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _getTodayTiming(course),
+                    style: FacultyTextStyles.bodySmall.copyWith(
+                      color: FacultyColors.gray400,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 12),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: FacultyColors.primary,
-                borderRadius: BorderRadius.circular(20),
+                color: FacultyColors.gray900,
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Text('Start Now',
-                  style: FacultyTextStyles.bodySmall.copyWith(
-                      color: FacultyColors.white, fontWeight: FontWeight.bold)),
+              child: Text(
+                'Start Now',
+                style: FacultyTextStyles.bodySmall.copyWith(
+                  color: FacultyColors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
             ),
           ],
         ),

@@ -25,12 +25,6 @@ class _FacultyMainScaffoldState extends State<FacultyMainScaffold> {
     });
   }
 
-  List<Widget> get _pages => [
-        FacultyHomeTab(onStartSession: _onStartSession),
-        FacultyAttendanceTab(initialCourse: _selectedCourseForAttendance),
-        const FacultyCoursesTab(),
-        const FacultyProfileTab(),
-      ];
 
   void _onItemTapped(int index) {
     setState(() {
@@ -42,7 +36,15 @@ class _FacultyMainScaffoldState extends State<FacultyMainScaffold> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: _pages[_selectedIndex],
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            FacultyHomeTab(onStartSession: _onStartSession),
+            FacultyAttendanceTab(initialCourse: _selectedCourseForAttendance),
+            const FacultyCoursesTab(),
+            const FacultyProfileTab(),
+          ],
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

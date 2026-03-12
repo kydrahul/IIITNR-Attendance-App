@@ -136,7 +136,7 @@ class ScannerProvider extends ChangeNotifier {
       }
 
       final response = await _apiClient.post(
-        '/attendance/student/scan-qr',
+        '/student/scan-qr',
         body: {
             'qrData': qrData,
             'latitude': location['latitude']!,

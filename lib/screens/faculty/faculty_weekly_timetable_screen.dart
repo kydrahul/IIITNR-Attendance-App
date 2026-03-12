@@ -79,6 +79,13 @@ class _FacultyWeeklyTimetableScreenState
     });
   }
 
+  String _abbreviate(String name) {
+    if (name.length <= 8) return name;
+    final words = name.trim().split(RegExp(r'\s+'));
+    if (words.length == 1) return name.substring(0, 3).toUpperCase();
+    return words.where((w) => w.isNotEmpty).map((w) => w[0]).join().toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -330,8 +337,11 @@ class _FacultyWeeklyTimetableScreenState
             final classHour =
                 timeStr.split(' ')[0].split(':')[0].padLeft(2, '0');
             if (classHour == slotHour) {
+              final abbr = _abbreviate(course.name);
+              final sem = course.semester ?? '';
+              final branch = course.department;
               return {
-                "text": "${course.name}\n${slot.room ?? ''}",
+                "text": "$abbr\nSem $sem $branch\n${slot.room ?? ''}",
                 "code": course.code,
               };
             }
@@ -349,26 +359,26 @@ class _FacultyWeeklyTimetableScreenState
 
     return Row(
       children: [
-        _buildCell(timeSlot, CellType.time, width: 40, height: 48),
+        _buildCell(timeSlot, CellType.time, width: 40, height: 64),
         _buildCell(monInfo["text"]!, CellType.classCell,
             width: 60,
-            height: 48,
+            height: 64,
             isHighlighted: monInfo["code"] == widget.highlightCourseCode),
         _buildCell(tueInfo["text"]!, CellType.classCell,
             width: 60,
-            height: 48,
+            height: 64,
             isHighlighted: tueInfo["code"] == widget.highlightCourseCode),
         _buildCell(wedInfo["text"]!, CellType.classCell,
             width: 60,
-            height: 48,
+            height: 64,
             isHighlighted: wedInfo["code"] == widget.highlightCourseCode),
         _buildCell(thuInfo["text"]!, CellType.classCell,
             width: 60,
-            height: 48,
+            height: 64,
             isHighlighted: thuInfo["code"] == widget.highlightCourseCode),
         _buildCell(friInfo["text"]!, CellType.classCell,
             width: 60,
-            height: 48,
+            height: 64,
             isHighlighted: friInfo["code"] == widget.highlightCourseCode),
       ],
     );
@@ -377,8 +387,8 @@ class _FacultyWeeklyTimetableScreenState
   Widget _buildLunchRow() {
     return Row(
       children: [
-        _buildCell("1:00", CellType.time, width: 40, height: 48),
-        _buildCell("Lunch", CellType.breakCell, width: 300, height: 48),
+        _buildCell("1:00", CellType.time, width: 40, height: 64),
+        _buildCell("Lunch", CellType.breakCell, width: 300, height: 64),
       ],
     );
   }
@@ -402,8 +412,8 @@ class _FacultyWeeklyTimetableScreenState
         bgColor = FacultyColors.gray100;
         textColor = FacultyColors.black;
         fontWeight = FontWeight.bold;
-        fontSize = 7;
-        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 12);
+        fontSize = 10;
+        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 4);
         textStyle = TextStyle(
           fontWeight: fontWeight,
           fontSize: fontSize,
@@ -415,8 +425,8 @@ class _FacultyWeeklyTimetableScreenState
         bgColor = FacultyColors.white;
         textColor = FacultyColors.gray500;
         fontWeight = FontWeight.normal;
-        fontSize = 7;
-        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 24);
+        fontSize = 9;
+        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 8);
         textStyle = TextStyle(
           fontFamily: 'monospace',
           fontSize: fontSize,
@@ -429,8 +439,8 @@ class _FacultyWeeklyTimetableScreenState
         bgColor = text.isNotEmpty ? FacultyColors.white : FacultyColors.gray50;
         textColor = FacultyColors.black;
         fontWeight = FontWeight.normal;
-        fontSize = 8;
-        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 12);
+        fontSize = 11;
+        padding = const EdgeInsets.symmetric(horizontal: 4, vertical: 6);
         textStyle = TextStyle(
           fontSize: fontSize,
           fontWeight: fontWeight,
@@ -442,8 +452,8 @@ class _FacultyWeeklyTimetableScreenState
         bgColor = FacultyColors.gray200;
         textColor = FacultyColors.black;
         fontWeight = FontWeight.bold;
-        fontSize = 7;
-        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 24);
+        fontSize = 10;
+        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 8);
         textStyle = TextStyle(
           fontSize: fontSize,
           fontWeight: fontWeight,
@@ -457,7 +467,7 @@ class _FacultyWeeklyTimetableScreenState
         textColor = FacultyColors.gray400;
         fontWeight = FontWeight.w300;
         fontSize = 8;
-        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 24);
+        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 8);
         textStyle = TextStyle(
           fontSize: fontSize,
           fontWeight: fontWeight,

@@ -6,6 +6,7 @@ import '../../../constants/faculty/faculty_colors.dart';
 import '../../../constants/faculty/faculty_text_styles.dart';
 import '../../../models/faculty/faculty_models.dart';
 import '../../../services/faculty/faculty_api_service.dart';
+import '../../../services/auth_service.dart';
 import '../../../widgets/faculty/search_bar.dart';
 import '../../../widgets/faculty/cards/class_item_card.dart';
 import '../../../widgets/faculty/cards/idle_item_card.dart';
@@ -22,11 +23,12 @@ class FacultyHomeTab extends StatefulWidget {
 
 class _FacultyHomeTabState extends State<FacultyHomeTab> {
   final FacultyApiService _apiService = FacultyApiService();
+  final AuthService _authService = AuthService();
   List<Course> _allCourses = [];
   List<Course> _filteredCourses = [];
   bool _isLoading = true;
   bool _showProfilePopup = false;
-  Map<String, dynamic>? _profileData;
+  FacultyProfile? _profileData;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
@@ -58,101 +60,25 @@ class _FacultyHomeTabState extends State<FacultyHomeTab> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      // Temporary Dummy Data
-      final List<Course> dummyCourses = [
-        Course(
-          id: '1',
-          name: 'Computer Networks',
-          code: 'CS401',
-          section: 'A',
-          enrolledCount: 64,
-          timetable: [
-            TimetableSlot(
-                day: 'Monday',
-                time: '10:00 AM',
-                type: 'Theory',
-                room: 'LHC-101'),
-            TimetableSlot(
-                day: 'Wednesday',
-                time: '11:00 AM',
-                type: 'Theory',
-                room: 'LHC-101'),
-            TimetableSlot(
-                day: 'Friday',
-                time: '10:00 AM',
-                type: 'Theory',
-                room: 'LHC-102'),
-          ],
-          joinCode: 'NET-2024',
-          department: 'CSE',
-          academicYear: '2023-24',
-          credits: 4,
-          className: 'B.Tech CSE 3rd Year',
-        ),
-        Course(
-          id: '2',
-          name: 'Operating Systems',
-          code: 'CS402',
-          section: 'B',
-          enrolledCount: 58,
-          timetable: [
-            TimetableSlot(
-                day: 'Tuesday',
-                time: '12:00 PM',
-                type: 'Theory',
-                room: 'LHC-201'),
-            TimetableSlot(
-                day: 'Thursday', time: '02:00 PM', type: 'Lab', room: 'Lab-1'),
-            TimetableSlot(
-                day: 'Friday',
-                time: '02:00 PM',
-                type: 'Theory',
-                room: 'LHC-203'),
-          ],
-          joinCode: 'OS-CORE',
-          department: 'CSE',
-          academicYear: '2023-24',
-          credits: 4,
-          className: 'B.Tech CSE 3rd Year',
-        ),
-        Course(
-          id: '3',
-          name: 'AI & Machine Learning',
-          code: 'CS501',
-          section: 'A',
-          enrolledCount: 72,
-          timetable: [
-            TimetableSlot(
-                day: 'Wednesday',
-                time: '10:00 AM',
-                type: 'Theory',
-                room: 'LHC-105'),
-          ],
-          joinCode: 'AI-ML',
-          department: 'CSE',
-          academicYear: '2023-24',
-          credits: 3,
-          className: 'B.Tech CSE 4th Year',
-        ),
-      ];
-
-      // Simulate delay
-      await Future.delayed(const Duration(milliseconds: 600));
+      // Reload user to get fresh photoURL and other details
+      await _authService.currentUser?.reload();
 
       final results = await Future.wait([
         _apiService.listCourses(),
-        _apiService.getProfile(),
+        _apiService.getProfile(forceRefresh: true),
       ]);
 
       final courses = results[0] as List<Course>;
-      final profile = results[1] as Map<String, dynamic>;
+      final profile = results[1] as FacultyProfile;
 
-      setState(() {
-        _allCourses = courses.isEmpty ? dummyCourses : courses;
-        _filteredCourses = _allCourses;
-        _profileData = profile;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _allCourses = courses;
+          _filteredCourses = _allCourses;
+          _profileData = profile;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -229,7 +155,8 @@ class _FacultyHomeTabState extends State<FacultyHomeTab> {
           content,
           if (_showProfilePopup)
             ProfilePopup(
-              profileData: _profileData,
+              profileData: _profileData?.toJson(),
+              photoUrl: _authService.currentUser?.photoURL,
               onClose: () => setState(() => _showProfilePopup = false),
             ),
         ],
@@ -258,27 +185,93 @@ class _FacultyHomeTabState extends State<FacultyHomeTab> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: FacultyColors.green600,
+                color: FacultyColors.white,
                 shape: BoxShape.circle,
+                border: Border.all(color: FacultyColors.gray100),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withOpacity(0.05),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              alignment: Alignment.center,
-              child: Text(
-                _profileData?['name'] != null
-                    ? _profileData!['name'][0].toUpperCase()
-                    : 'R',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
+              child: ClipOval(
+                child: Builder(builder: (context) {
+                  final String? photoUrl = _authService.currentUser?.photoURL ?? _profileData?.photoUrl;
+                  
+                  if (photoUrl != null && photoUrl.isNotEmpty) {
+                    return Image.network(
+                      photoUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => _buildFallbackInitial(),
+                    );
+                  }
+                  return _buildFallbackInitial();
+                }),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFallbackInitial() {
+    return Container(
+      color: FacultyColors.blue600,
+      alignment: Alignment.center,
+      child: Text(
+        _profileData?.name != null && _profileData!.name.isNotEmpty
+            ? _profileData!.name[0].toUpperCase()
+            : 'F',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoCoursesMessage() {
+    return Container(
+      margin: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: FacultyColors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: FacultyColors.gray100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: FacultyColors.gray50,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(LucideIcons.book, size: 40, color: FacultyColors.gray400),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            "No Courses Created",
+            style: FacultyTextStyles.h3.copyWith(color: FacultyColors.gray900),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "You haven't added any courses to your profile yet. Switch to the Courses tab to add your first course.",
+            textAlign: TextAlign.center,
+            style: FacultyTextStyles.bodyMedium.copyWith(
+              color: FacultyColors.gray500,
+              height: 1.5,
             ),
           ),
         ],
@@ -347,7 +340,8 @@ class _FacultyHomeTabState extends State<FacultyHomeTab> {
   Widget _buildDashboardContent() {
     final currentDayName = daysOfWeek[currentDayIndex];
     final todaysClasses = _getSlotsForDay(currentDayName);
-    final hours = List.generate(10, (i) => i + 9); // 9 AM to 6 PM
+    final hours = [9, 10, 11, 12, 13, 14, 15, 16, 17]; // 9 AM to 6 PM
+    final now = DateTime.now();
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -358,55 +352,142 @@ class _FacultyHomeTabState extends State<FacultyHomeTab> {
           const SizedBox(height: 24),
           if (_isLoading)
             const Center(child: CircularProgressIndicator())
+          else if (_allCourses.isEmpty)
+            _buildNoCoursesMessage()
           else
-            Stack(
-              children: [
-                Positioned(
-                  left: 29,
-                  top: 8,
-                  bottom: 0,
-                  child: Container(width: 2, color: FacultyColors.gray100),
-                ),
-                Column(
-                  children: hours.map((hour) {
-                    final slotItem = todaysClasses.firstWhere(
-                      (item) {
-                        final slot = item['slot'] as TimetableSlot;
-                        // Basic check: "10:00 AM" starts with "10"
-                        final timeParts = slot.time.split(' ');
-                        final timeH =
-                            int.tryParse(timeParts[0].split(':')[0]) ?? 0;
-                        final isPM = timeParts.last == 'PM';
-                        final actualHour =
-                            (isPM && timeH != 12) ? timeH + 12 : timeH;
-                        return actualHour == hour;
-                      },
-                      orElse: () => {},
-                    );
+            Column(
+              children: hours.map((hour) {
+                final isLunch = hour == 13;
+                final isLast = hour == 17;
 
-                    final timeStr = "$hour:00";
-                    final endTimeStr = "${hour + 1}:00";
-
-                    if (slotItem.isNotEmpty) {
-                      final Course course = slotItem['course'];
-                      final TimetableSlot slot = slotItem['slot'];
-                      return ClassItemCard(
-                        startTime: slot.time,
-                        endTime: endTimeStr, // Mock end time
-                        subject: course.name,
-                        status: "Upcoming",
-                        instructor: "Rahul Barma", // Match screenshot
-                        credits: course.credits,
-                        attendance: 25, // Mock attendance
-                        onTap: () => widget.onStartSession(course),
+                // Template Logic: Find if there's a class scheduled for this hour
+                final slotItem = isLunch
+                    ? {}
+                    : todaysClasses.firstWhere(
+                        (item) {
+                          final slot = item['slot'] as TimetableSlot;
+                          final timeParts = slot.time.toUpperCase().split(' ');
+                          final timeH =
+                              int.tryParse(timeParts[0].split(':')[0]) ?? 0;
+                          final isPM = timeParts.contains('PM');
+                          
+                          // Convert to 24h for comparison
+                          int actualHour = timeH;
+                          if (isPM && timeH != 12) actualHour += 12;
+                          if (!isPM && timeH == 12) actualHour = 0;
+                          
+                          return actualHour == hour;
+                        },
+                        orElse: () => {},
                       );
-                    } else {
-                      return IdleItemCard(time: timeStr);
-                    }
-                  }).toList(),
-                ),
-              ],
+
+                // Dynamic Status Template
+                String status = "Upcoming";
+                if (slotItem.isNotEmpty) {
+                  final currentHour = now.hour;
+                  if (currentHour > hour) {
+                    status = "Done";
+                  } else if (currentHour == hour) {
+                    status = "Live";
+                  }
+                }
+
+                // Time Display Template
+                final timeLabel = "${hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour)}:00 ${hour >= 12 ? 'PM' : 'AM'}";
+                final endHour = hour + 1;
+                final endTimeLabel = "${endHour > 12 ? endHour - 12 : (endHour == 0 ? 12 : endHour)}:00 ${endHour >= 12 ? 'PM' : 'AM'}";
+
+                return SizedBox(
+                  height: 95,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Time Sidebar
+                      SizedBox(
+                        width: 80,
+                        child: Column(
+                          children: [
+                            Text(
+                              timeLabel,
+                              style: FacultyTextStyles.label.copyWith(
+                                color: FacultyColors.gray500,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            if (!isLast)
+                              Expanded(
+                                child: Container(
+                                  width: 1.5,
+                                  decoration: BoxDecoration(
+                                    color: FacultyColors.gray100,
+                                    borderRadius: BorderRadius.circular(1),
+                                  ),
+                                ),
+                              )
+                            else
+                              const Spacer(),
+                            const SizedBox(height: 6),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      // Card Content Template
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: isLunch
+                              ? _buildLunchBreakCard()
+                              : slotItem.isNotEmpty
+                                  ? ClassItemCard(
+                                      startTime: slotItem['slot'].time,
+                                      endTime: endTimeLabel,
+                                      subject: slotItem['course'].name,
+                                      status: status,
+                                      instructor: _profileData?.name ?? "Faculty Member",
+                                      credits: slotItem['course'].credits,
+                                      attendance: slotItem['course'].enrolledCount,
+                                      degree: slotItem['course'].degree,
+                                      year: slotItem['course'].academicYear,
+                                      semester: slotItem['course'].semester,
+                                      onTap: () => widget.onStartSession(slotItem['course']),
+                                    )
+                                  : const IdleItemCard(time: "Free Slot"),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLunchBreakCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: FacultyColors.gray50.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: FacultyColors.gray100),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Lunch",
+            style: FacultyTextStyles.bodyMedium.copyWith(
+              fontWeight: FontWeight.bold,
+              color: FacultyColors.gray600,
+              fontSize: 14,
+              letterSpacing: 0.5,
+            ),
+          ),
         ],
       ),
     );

@@ -37,15 +37,19 @@ class _SplashScreenState extends State<SplashScreen> {
 
     // User is authenticated, check if profile exists
     try {
+      final role = await _authService.getUserRole();
+      
+      if (role == 'faculty') {
+        // Skip profile check/biometrics for faculty auto-login
+        if (mounted) Navigator.pushReplacementNamed(context, '/faculty-home');
+        return;
+      }
+
       // Pass true to bypass cache and verify real DB existence
       await _apiService.getProfile(checkProfileExists: true);
 
-      // Profile exists, now check Biometrics
+      // Student Profile exists, now check Biometrics
       if (mounted) {
-        setState(() {
-          // Update UI to show "Authenticating..."? Or just let the system dialog show
-        });
-
         final biometricService = BiometricService();
         final canCheck = await biometricService.checkBiometrics();
 

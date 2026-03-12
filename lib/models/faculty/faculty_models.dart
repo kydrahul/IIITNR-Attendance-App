@@ -15,12 +15,22 @@ class Student {
 
   factory Student.fromJson(Map<String, dynamic> json) {
     return Student(
-      id: json['id']?.toString() ?? json['studentId']?.toString() ?? '',
-      name: json['name'] ?? json['studentName'] ?? '',
-      rollNo: json['rollNo'] ?? json['roll'] ?? '',
-      status: json['status'],
+      id: (json['id'] ?? json['studentId'] ?? '').toString(),
+      name: (json['name'] ?? json['studentName'] ?? 'Unknown').toString(),
+      rollNo: (json['rollNo'] ?? json['roll'] ?? 'N/A').toString(),
+      status: json['status']?.toString(),
       markedAt: json['markedAt']?.toString(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'rollNo': rollNo,
+      'status': status,
+      'markedAt': markedAt,
+    };
   }
 }
 
@@ -45,6 +55,15 @@ class TimetableSlot {
       room: json['room'],
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'day': day,
+      'time': time,
+      'type': type,
+      'room': room,
+    };
+  }
 }
 
 class Course {
@@ -61,6 +80,7 @@ class Course {
   final int credits;
   final String? semester;
   final String? session; // 'Spring', 'Autumn'
+  final String? degree; // 'B.Tech', 'M.Tech'
 
   Course({
     required this.id,
@@ -76,6 +96,7 @@ class Course {
     required this.credits,
     this.semester,
     this.session,
+    this.degree,
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -90,12 +111,13 @@ class Course {
               .toList() ??
           [],
       joinCode: json['joinCode'] ?? '',
-      department: json['department'] ?? '',
-      academicYear: json['academicYear'] ?? '',
+      department: json['department'] ?? json['branch'] ?? '',
+      academicYear: json['year']?.toString() ?? json['academicYear']?.toString() ?? '',
       className: json['className'],
       credits: json['credits'] ?? 3,
-      semester: json['semester'],
+      semester: json['semester']?.toString(),
       session: json['session'],
+      degree: json['degree'],
     );
   }
 
@@ -107,6 +129,25 @@ class Course {
 
   @override
   int get hashCode => id.hashCode;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'code': code,
+      'name': name,
+      'section': section,
+      'enrolledCount': enrolledCount,
+      'timetable': timetable.map((t) => t.toJson()).toList(),
+      'joinCode': joinCode,
+      'department': department,
+      'academicYear': academicYear,
+      'className': className,
+      'credits': credits,
+      'semester': semester,
+      'session': session,
+      'degree': degree,
+    };
+  }
 }
 
 class AttendanceSession {
@@ -120,6 +161,7 @@ class AttendanceSession {
   final double? latitude;
   final double? longitude;
   final int radius;
+  final bool isLocationRequired;
 
   AttendanceSession({
     required this.id,
@@ -132,6 +174,7 @@ class AttendanceSession {
     this.latitude,
     this.longitude,
     required this.radius,
+    this.isLocationRequired = true,
   });
 
   factory AttendanceSession.fromJson(Map<String, dynamic> json) {
@@ -147,6 +190,112 @@ class AttendanceSession {
       latitude: json['latitude']?.toDouble(),
       longitude: json['longitude']?.toDouble(),
       radius: json['radius'] ?? 1100,
+      isLocationRequired: json['isLocationRequired'] ?? true,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'courseId': courseId,
+      'qrData': qrData,
+      'qrVersion': qrVersion,
+      'startTime': startTime.toIso8601String(),
+      'endTime': endTime?.toIso8601String(),
+      'classType': classType,
+      'latitude': latitude,
+      'longitude': longitude,
+      'radius': radius,
+      'isLocationRequired': isLocationRequired,
+    };
+  }
+}
+
+class FacultyProfile {
+  final String id;
+  final String facultyId;
+  final String employeeId;
+  final String name;
+  final String email;
+  final String department;
+  final String position;
+  final String designation;
+  final String? photoUrl;
+  final Map<String, dynamic> settings;
+
+  FacultyProfile({
+    required this.id,
+    required this.facultyId,
+    required this.employeeId,
+    required this.name,
+    required this.email,
+    required this.department,
+    required this.position,
+    required this.designation,
+    this.photoUrl,
+    this.settings = const {},
+  });
+
+  factory FacultyProfile.fromJson(Map<String, dynamic> json) {
+    return FacultyProfile(
+      id: json['_id'] ?? json['id'] ?? '',
+      facultyId: json['facultyId'] ?? json['employeeId'] ?? '',
+      employeeId: json['employeeId'] ?? json['facultyId'] ?? '',
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
+      department: json['department'] ?? '',
+      position: json['position'] ?? json['designation'] ?? '',
+      designation: json['designation'] ?? json['position'] ?? '',
+      photoUrl: json['photoUrl'] as String?,
+      settings: json['settings'] as Map<String, dynamic>? ?? {},
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'facultyId': facultyId,
+      'employeeId': employeeId,
+      'name': name,
+      'email': email,
+      'department': department,
+      'position': position,
+      'designation': designation,
+      'photoUrl': photoUrl,
+      'settings': settings,
+    };
+  }
+}
+class RoomModel {
+  final String id;
+  final String name;
+  final double latitude;
+  final double longitude;
+
+  RoomModel({
+    required this.id,
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  factory RoomModel.fromJson(Map<String, dynamic> json) {
+    return RoomModel(
+      id: (json['id'] ?? json['_id'] ?? '').toString(),
+      name: (json['name'] ?? 'Unknown Room').toString(),
+      latitude: (json['latitude'] as num? ?? json['Latitude'] as num? ?? 0.0).toDouble(),
+      longitude: (json['longitude'] as num? ?? 
+                  json['Longitude'] as num? ?? 
+                  json['longitute'] as num? ?? 0.0).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'latitude': latitude,
+      'longitude': longitude,
+    };
   }
 }

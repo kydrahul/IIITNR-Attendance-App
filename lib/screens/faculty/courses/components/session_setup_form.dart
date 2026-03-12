@@ -4,13 +4,10 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../constants/faculty/faculty_colors.dart';
 import '../../../../constants/faculty/faculty_text_styles.dart';
 import '../../../../providers/live_session_provider.dart';
+import '../../../../models/faculty/faculty_models.dart';
 
 class SessionSetupForm extends StatelessWidget {
   const SessionSetupForm({super.key});
-
-  final List<String> _rooms = const [
-    'LT-1', 'LT-2', 'LT-3', 'CR-1', 'CR-2', 'Lab 1', 'Lab 2'
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -68,8 +65,8 @@ class SessionSetupForm extends StatelessWidget {
                     _buildInputField(
                       initialValue: provider.locationRadius.toString(),
                       onChanged: (val) {
-                        final v = int.tryParse(val) ?? 5;
-                        provider.locationRadius = v > 4 ? v : 5;
+                        final v = int.tryParse(val) ?? 50;
+                        provider.locationRadius = v.clamp(10, 150);
                       },
                     ),
                   ],
@@ -80,38 +77,152 @@ class SessionSetupForm extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Selected Classroom
-          Text('Select Classroom *', style: FacultyTextStyles.label),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Select Classroom *', style: FacultyTextStyles.label),
+              if (provider.isLocationRequired)
+                Row(
+                  children: [
+                    if (provider.isLoadingRooms)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    IconButton(
+                      icon: const Icon(LucideIcons.refreshCw, size: 18),
+                      onPressed: provider.fetchRooms,
+                      tooltip: "Refresh rooms",
+                    ),
+                    IconButton(
+                      icon: const Icon(LucideIcons.mapPin, size: 20, color: FacultyColors.primary),
+                      onPressed: () async {
+                        try {
+                          final candidates = await provider.detectNearestRoom();
+                          if (candidates.length > 1 && context.mounted) {
+                            _showProximitySheet(context, candidates, provider);
+                          } else if (candidates.isEmpty && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('No classroom found within 30m. Please select manually.'),
+                                backgroundColor: FacultyColors.black,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString().replaceAll('Exception: ', '')),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      tooltip: "Detect nearest classroom",
+                    ),
+                  ],
+                ),
+            ],
+          ),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
               border: Border.all(
-                  color: provider.selectedRoom == null
+                  color: provider.isLocationRequired && provider.selectedRoom == null
                       ? Colors.red.shade200
                       : FacultyColors.gray200),
               borderRadius: BorderRadius.circular(12),
-              color: FacultyColors.white,
+              color: provider.isLocationRequired ? FacultyColors.white : FacultyColors.gray50,
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: provider.selectedRoom,
                 isExpanded: true,
-                hint: const Text('Select Room (Required)',
-                    style: TextStyle(color: FacultyColors.gray400)),
+                hint: Text(
+                  provider.isLocationRequired ? 'Select Room (Required)' : 'Location Verification Disabled',
+                  style: const TextStyle(color: FacultyColors.gray400),
+                ),
                 icon: const Icon(LucideIcons.chevronDown, size: 20),
-                items: _rooms.map((room) {
+                items: provider.rooms.map((room) {
                   return DropdownMenuItem(
-                    value: room,
-                    child: Text(room, style: FacultyTextStyles.bodyMedium),
+                    value: room.name,
+                    child: Text(room.name, style: FacultyTextStyles.bodyMedium),
                   );
                 }).toList(),
-                onChanged: (val) {
+                onChanged: provider.isLocationRequired ? (val) {
                   provider.selectedRoom = val;
-                },
+                } : null,
               ),
             ),
           ),
           const SizedBox(height: 20),
+
+          // Location Requirements Toggle
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: provider.isLocationRequired 
+                  ? FacultyColors.primary.withOpacity(0.05) 
+                  : FacultyColors.gray50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: provider.isLocationRequired 
+                    ? FacultyColors.primary.withOpacity(0.1) 
+                    : FacultyColors.gray200,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      provider.isLocationRequired ? LucideIcons.mapPin : LucideIcons.mapPinOff, 
+                      size: 20, 
+                      color: provider.isLocationRequired ? FacultyColors.primary : FacultyColors.gray400
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Require Location verification', 
+                      style: FacultyTextStyles.bodyMedium.copyWith(
+                        color: provider.isLocationRequired ? FacultyColors.black : FacultyColors.gray500
+                      )
+                    ),
+                  ],
+                ),
+                Switch(
+                  value: provider.isLocationRequired,
+                  onChanged: (val) => provider.isLocationRequired = val,
+                  activeColor: FacultyColors.primary,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Class Type Selection
+          Text('Class Type', style: FacultyTextStyles.label),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildTypeOption(
+                title: 'Theory',
+                isActive: provider.classType == 'Theory',
+                onTap: () => provider.classType = 'Theory',
+              ),
+              const SizedBox(width: 12),
+              _buildTypeOption(
+                title: 'Lab',
+                isActive: provider.classType == 'Lab',
+                onTap: () => provider.classType = 'Lab',
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
 
           // Auto Refresh settings
           Container(
@@ -163,7 +274,7 @@ class SessionSetupForm extends StatelessWidget {
 
           // Generate Button
           ElevatedButton.icon(
-            onPressed: provider.selectedRoom == null
+            onPressed: (provider.isLocationRequired && provider.selectedRoom == null)
                 ? null
                 : () async {
                     try {
@@ -199,6 +310,70 @@ class SessionSetupForm extends StatelessWidget {
     );
   }
 
+  void _showProximitySheet(BuildContext context, List<RoomModel> rooms, LiveSessionProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Multiple Rooms Detected', style: FacultyTextStyles.h3),
+              const SizedBox(height: 8),
+              Text(
+                'We found ${rooms.length} rooms nearby. Please select the correct one:',
+                style: FacultyTextStyles.bodyMedium.copyWith(color: FacultyColors.gray500),
+              ),
+              const SizedBox(height: 20),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: rooms.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final room = rooms[index];
+                    return InkWell(
+                      onTap: () {
+                        provider.selectedRoom = room.name;
+                        Navigator.pop(context);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: FacultyColors.gray200),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(LucideIcons.doorOpen, size: 20, color: FacultyColors.primary),
+                            const SizedBox(width: 16),
+                            Text(
+                              room.name,
+                              style: FacultyTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const Spacer(),
+                            const Icon(LucideIcons.chevronRight, size: 18, color: FacultyColors.gray400),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildInputField(
       {required String initialValue, required Function(String) onChanged}) {
     return TextFormField(
@@ -218,6 +393,38 @@ class SessionSetupForm extends StatelessWidget {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: FacultyColors.gray200),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeOption({
+    required String title,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isActive ? FacultyColors.primary.withOpacity(0.08) : FacultyColors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isActive ? FacultyColors.primary : FacultyColors.gray200,
+              width: isActive ? 1.5 : 1,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              title,
+              style: FacultyTextStyles.bodyMedium.copyWith(
+                color: isActive ? FacultyColors.primary : FacultyColors.gray600,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
         ),
       ),
     );
