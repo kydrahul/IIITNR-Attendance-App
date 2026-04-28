@@ -1,4 +1,4 @@
-name: student_app
+name: iiitnr_attendance
 description: "IIITNR Attendance Student App"
 publish_to: 'none'
 
@@ -36,9 +36,6 @@ dependencies:
   path_provider: ^2.1.5
 
 
-# Forces compatible Android plugin version
-dependency_overrides:
-  geolocator_android: 4.2.1
 
 dev_dependencies:
   flutter_test:

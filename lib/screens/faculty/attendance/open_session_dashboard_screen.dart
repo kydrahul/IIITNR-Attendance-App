@@ -1,3 +1,2 @@
-// TODO: Open Session Dashboard — to be implemented
-// This screen is for open gatherings where all students are present
-// and faculty needs a quick headcount.
+// This file has been intentionally removed.
+// The open session dashboard feature was never implemented.
