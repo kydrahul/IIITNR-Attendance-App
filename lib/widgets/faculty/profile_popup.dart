@@ -76,7 +76,7 @@ class ProfilePopup extends StatelessWidget {
                     height: 72,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(
+                      gradient: const LinearGradient(
                         colors: [FacultyColors.blue600, FacultyColors.blue500],
                         begin: Alignment.bottomLeft,
                         end: Alignment.topRight,

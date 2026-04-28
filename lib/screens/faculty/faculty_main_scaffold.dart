@@ -23,6 +23,10 @@ class _FacultyMainScaffoldState extends State<FacultyMainScaffold> {
       _selectedCourseForAttendance = course;
       _selectedIndex = 1; // Switch to Attendance tab
     });
+    // Clear after next frame so it doesn't re-trigger on future tab switches
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _selectedCourseForAttendance = null;
+    });
   }
 
 

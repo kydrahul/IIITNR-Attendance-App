@@ -4,6 +4,7 @@ import '../../../constants/faculty/faculty_colors.dart';
 import '../../../constants/faculty/faculty_text_styles.dart';
 import '../../../models/faculty/faculty_models.dart';
 import '../../../services/faculty/faculty_api_service.dart';
+import '../../../services/report_service.dart';
 import '../courses/start_session_screen.dart';
 import '../courses/session_details_screen.dart';
 
@@ -78,8 +79,10 @@ class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
       final response = await _apiService.getCourseAttendanceGrid(courseId);
       if (mounted) {
         setState(() {
-          _gridSessions = response['sessions'] ?? [];
-          _gridStudents = response['students'] ?? [];
+          final sessionsData = response['sessions'];
+          final studentsData = response['students'];
+          _gridSessions = (sessionsData is List) ? sessionsData : [];
+          _gridStudents = (studentsData is List) ? studentsData : [];
           _isLoadingGrid = false;
         });
       }
@@ -155,6 +158,30 @@ class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
                         Text('Attendance Hub',
                             style: FacultyTextStyles.h1
                                 .copyWith(color: FacultyColors.gray900)),
+                        const Spacer(),
+                        if (_selectedCourse != null)
+                          PopupMenuButton<String>(
+                            icon: const Icon(LucideIcons.moreVertical,
+                                color: FacultyColors.gray900),
+                            onSelected: (value) {
+                              if (value == 'export') {
+                                _showExportDialog();
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'export',
+                                child: Row(
+                                  children: [
+                                    Icon(LucideIcons.fileText,
+                                        size: 18, color: FacultyColors.gray700),
+                                    SizedBox(width: 12),
+                                    Text('Export Attendance'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -386,13 +413,9 @@ class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
 
   List<Course> _getTodayCourses() {
     final today = _getCurrentDayString();
-    var todayCourses =
-        _courses.where((c) => c.timetable.any((t) => t.day == today)).toList();
-    if (todayCourses.isEmpty && _courses.isNotEmpty) {
-      // Fallback for testing/visibility if no courses today
-      return [_courses.first];
-    }
-    return todayCourses;
+    return _courses.where((c) {
+      return c.timetable.any((t) => t.day == today);
+    }).toList();
   }
 
   Widget _buildDisabledState() {
@@ -494,7 +517,7 @@ class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
   Widget _buildQuickPicks() {
     if (_courses.isEmpty) return const SizedBox.shrink();
 
-    final quickPicks = _getTodayCourses().take(2).toList();
+    final quickPicks = _getTodayCourses();
     if (quickPicks.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -721,7 +744,11 @@ class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
                            
         final String type = session['type'] ?? session['classType'] ?? 'Theory';
         final String room = session['roomNumber']?.toString() ?? session['room']?.toString() ?? 'N/A';
-        final num attPerc = session['attendancePercentage'] ?? 0;
+        final int totalStudents = session['totalStudents'] ?? 0;
+        final int presentCount = session['presentCount'] ?? 0;
+        final num attPerc = totalStudents > 0
+            ? ((presentCount / totalStudents) * 100).round()
+            : 0;
 
         return InkWell(
           onTap: () {
@@ -808,14 +835,16 @@ class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
     if (_gridStudents.isEmpty) {
       return const Center(child: Text("No students enrolled for this course."));
     }
+    // Handle sessions correctly even if it's empty
     int totalSessions = _gridSessions.length;
+    
     return ListView.builder(
       padding: const EdgeInsets.all(24),
       itemCount: _gridStudents.length,
       itemBuilder: (context, index) {
         final student = _gridStudents[index];
-        final String name = student['name'] ?? 'Unknown';
-        final String roll = student['rollNumber'] ?? 'N/A';
+        final String name = (student['name'] ?? 'Unknown').toString();
+        final String roll = (student['rollNumber'] ?? student['rollNo'] ?? 'N/A').toString();
         final num attPerc = student['attendancePercentage'] ?? 0;
         final int attended = student['attendedCount'] ?? 0;
 
@@ -868,5 +897,115 @@ class _FacultyAttendanceTabState extends State<FacultyAttendanceTab>
         );
       },
     );
+  }
+
+  void _showExportDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Export Attendance'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(LucideIcons.users),
+              title: const Text('All Students'),
+              onTap: () {
+                Navigator.pop(context);
+                _exportReport('All');
+              },
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.userX, color: Colors.red),
+              title: const Text('Below 75%'),
+              onTap: () {
+                Navigator.pop(context);
+                _exportReport('Below 75%');
+              },
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.filter),
+              title: const Text('Custom Percentage'),
+              onTap: () {
+                Navigator.pop(context);
+                _showCustomPercentageDialog();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCustomPercentageDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Custom Threshold'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Threshold (%)',
+            hintText: 'Enter percentage (e.g. 60)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final val = double.tryParse(controller.text);
+              if (val != null) {
+                Navigator.pop(context);
+                _exportReport('Custom', val);
+              }
+            },
+            child: const Text('Export'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportReport(String filterType, [double? customVal]) async {
+    if (_selectedCourse == null) return;
+
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Generating PDF...')),
+      );
+
+      // Fetch faculty details for report
+      final profile = await _apiService.getProfile();
+
+      await ReportService.generateAttendanceReport(
+        courseName: _selectedCourse!.name,
+        courseCode: _selectedCourse!.code,
+        facultyName: profile.name,
+        students: _gridStudents,
+        totalSessions: _gridSessions.length,
+        filterType: filterType,
+        customPercentage: customVal,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Report generated successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate report: $e'),
+            backgroundColor: FacultyColors.red600,
+          ),
+        );
+      }
+    }
   }
 }

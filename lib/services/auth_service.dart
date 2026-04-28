@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'faculty/faculty_api_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -60,6 +62,19 @@ class AuthService {
 
   // Sign out
   Future<void> signOut() async {
+    // Clear faculty cache (in-memory + SharedPreferences)
+    try {
+      await FacultyApiService().clearCache();
+    } catch (_) {
+      // Best-effort — don't block sign-out if cache clear fails
+    }
+
+    // Clear student cache from SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+    } catch (_) {}
+
     await _googleSignIn.signOut();
     await _auth.signOut();
     await _storage.delete(key: 'auth_token');

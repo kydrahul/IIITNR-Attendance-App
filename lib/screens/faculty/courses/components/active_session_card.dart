@@ -13,6 +13,64 @@ class ActiveSessionCard extends StatelessWidget {
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
+  void _showProjectorMode(BuildContext context, String qrData) {
+    showDialog(
+      context: context,
+      useSafeArea: false,
+      builder: (context) => Scaffold(
+        backgroundColor: Colors.white,
+        body: Stack(
+          children: [
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "SCAN FOR ATTENDANCE",
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.black12),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: QrImageView(
+                      data: qrData,
+                      version: QrVersions.auto,
+                      size: MediaQuery.of(context).size.width * 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  const Text(
+                    "Hold phone steady and scan",
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 50,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close_fullscreen,
+                    size: 32, color: Colors.black),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<LiveSessionProvider>();
@@ -29,23 +87,39 @@ class ActiveSessionCard extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 15,
-                    )
-                  ],
-                ),
-                child: QrImageView(
-                  data: provider.qrValue,
-                  version: QrVersions.auto,
-                  size: 240.0,
-                ),
+              Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 15,
+                        )
+                      ],
+                    ),
+                    child: QrImageView(
+                      data: provider.qrValue,
+                      version: QrVersions.auto,
+                      size: 240.0,
+                    ),
+                  ),
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: IconButton(
+                      icon: const Icon(Icons.fullscreen,
+                          color: FacultyColors.gray400),
+                      onPressed: () =>
+                          _showProjectorMode(context, provider.qrValue),
+                      tooltip: 'Projector Mode',
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 32),
               Text(
@@ -94,7 +168,8 @@ class ActiveSessionCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              Text('Room: ${provider.selectedRoom ?? 'N/A'} • Range: ${provider.locationRadius}m',
+              Text(
+                  'Room: ${provider.selectedRoom ?? 'N/A'} • Range: ${provider.locationRadius}m',
                   style: const TextStyle(
                       color: FacultyColors.gray500, fontSize: 12)),
             ],
@@ -108,7 +183,9 @@ class ActiveSessionCard extends StatelessWidget {
                 onPressed: provider.autoRefresh
                     ? null
                     : () async {
-                        await context.read<LiveSessionProvider>().regenerateQR();
+                        await context
+                            .read<LiveSessionProvider>()
+                            .regenerateQR();
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(

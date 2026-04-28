@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:image_picker/image_picker.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/faculty/faculty_colors.dart';
 import '../../models/faculty/faculty_models.dart';
@@ -208,7 +208,6 @@ class _FacultyWeeklyTimetableScreenState
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _pickImage,
-              child: const Text("Import Image"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: FacultyColors.black,
                 foregroundColor: FacultyColors.white,
@@ -218,6 +217,7 @@ class _FacultyWeeklyTimetableScreenState
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
+              child: const Text("Import Image"),
             ),
           ],
         ),
@@ -233,19 +233,19 @@ class _FacultyWeeklyTimetableScreenState
             children: [
               TextButton(
                 onPressed: _removeImage,
-                child: const Text("Remove"),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.red,
                 ),
+                child: const Text("Remove"),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: _pickImage,
-                child: const Text("Replace"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: FacultyColors.black,
                   foregroundColor: FacultyColors.white,
                 ),
+                child: const Text("Replace"),
               ),
             ],
           ),

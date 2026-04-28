@@ -26,23 +26,35 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
   }
 
   Future<void> _loadAttendanceHistory() async {
+    try {
+      // 1. Load from cache first
+      final cachedHistory = await _apiService.getAttendanceHistory(forceRefresh: false);
+      if (cachedHistory.isNotEmpty) {
+        _updateUI(cachedHistory);
+      } else {
+        setState(() => _isLoading = true);
+      }
+
+      // 2. Fetch fresh data in the background
+      final freshHistory = await _apiService.getAttendanceHistory(forceRefresh: true);
+      _updateUI(freshHistory);
+    } catch (e) {
+      if (mounted && _attendanceHistory.isEmpty) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _updateUI(List<dynamic> history) {
+    if (!mounted) return;
     setState(() {
-      _isLoading = true;
+      _attendanceHistory = history;
+      _isLoading = false;
       _errorMessage = null;
     });
-
-    try {
-      final history = await _apiService.getAttendanceHistory();
-      setState(() {
-        _attendanceHistory = history;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to load attendance: ${e.toString()}';
-        _isLoading = false;
-      });
-    }
   }
 
   Color _getAttendanceColor(int percentage) {

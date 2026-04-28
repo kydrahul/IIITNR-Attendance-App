@@ -39,7 +39,7 @@ class JoinCodeDialog extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: FacultyColors.blue50,
                 shape: BoxShape.circle,
               ),

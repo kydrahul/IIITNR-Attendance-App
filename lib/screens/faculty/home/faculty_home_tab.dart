@@ -58,13 +58,32 @@ class _FacultyHomeTabState extends State<FacultyHomeTab> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    // 1. Try to load cached data first for instant UI response
     try {
-      // Reload user to get fresh photoURL and other details
+      final cachedCourses = await _apiService.listCourses(forceRefresh: false);
+      final cachedProfile = await _apiService.getProfile(forceRefresh: false);
+      
+      if (mounted) {
+        setState(() {
+          _allCourses = cachedCourses;
+          _filteredCourses = _allCourses;
+          _profileData = cachedProfile;
+          if (_allCourses.isNotEmpty) {
+            _isLoading = false;
+          }
+        });
+      }
+    } catch (_) {
+      // Ignore cache errors
+    }
+
+    // 2. Fetch fresh data in the background
+    try {
+      // Reload auth user for fresh metadata
       await _authService.currentUser?.reload();
 
       final results = await Future.wait([
-        _apiService.listCourses(),
+        _apiService.listCourses(forceRefresh: true),
         _apiService.getProfile(forceRefresh: true),
       ]);
 
@@ -83,6 +102,7 @@ class _FacultyHomeTabState extends State<FacultyHomeTab> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+      debugPrint('FacultyHomeTab: Background refresh error: $e');
     }
   }
 
@@ -328,9 +348,7 @@ class _FacultyHomeTabState extends State<FacultyHomeTab> {
                     .copyWith(color: FacultyColors.gray500)),
             trailing: const Icon(LucideIcons.chevronRight,
                 size: 20, color: FacultyColors.gray400),
-            onTap: () {
-              // Handle course detail navigation if needed
-            },
+            onTap: () => widget.onStartSession(course),
           ),
         );
       },

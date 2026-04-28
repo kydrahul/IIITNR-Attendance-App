@@ -6,6 +6,9 @@ import '../../../services/faculty/faculty_api_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../models/faculty/faculty_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../student/settings/about_screen.dart';
+import '../../student/settings/privacy_screen.dart';
+import '../../student/settings/terms_screen.dart';
 
 class FacultyProfileTab extends StatefulWidget {
   const FacultyProfileTab({super.key});
@@ -232,7 +235,7 @@ class _FacultyProfileTabState extends State<FacultyProfileTab> {
                         height: 100,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: LinearGradient(
+                          gradient: const LinearGradient(
                             colors: [FacultyColors.blue600, FacultyColors.blue500],
                             begin: Alignment.bottomLeft,
                             end: Alignment.topRight,
@@ -340,7 +343,9 @@ class _FacultyProfileTabState extends State<FacultyProfileTab> {
                         iconBg: FacultyColors.gray50,
                         label: "Terms & Conditions",
                         onTap: () {
-                          // Navigate to Terms screen if available
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => const TermsAndConditionsScreen(),
+                          ));
                         },
                       ),
                       _buildDivider(),
@@ -351,7 +356,9 @@ class _FacultyProfileTabState extends State<FacultyProfileTab> {
                         iconBg: FacultyColors.gray50,
                         label: "Privacy Policy",
                         onTap: () {
-                          // Navigate to Privacy screen if available
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => const PrivacyPolicyScreen(),
+                          ));
                         },
                       ),
                       _buildDivider(),
@@ -362,7 +369,9 @@ class _FacultyProfileTabState extends State<FacultyProfileTab> {
                         iconBg: FacultyColors.gray50,
                         label: "About",
                         onTap: () {
-                          // Navigate to About screen if available
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => const AboutScreen(),
+                          ));
                         },
                       ),
                       _buildDivider(),
@@ -374,6 +383,11 @@ class _FacultyProfileTabState extends State<FacultyProfileTab> {
                         label: "Logout",
                         labelColor: Colors.red,
                         onTap: () async {
+                          await _apiService.clearCache();
+                          // Clear local settings so they don't leak between users
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.remove('default_scan_radius');
+                          await prefs.remove('default_qr_refresh_interval');
                           await _authService.signOut();
                           if (context.mounted) {
                             Navigator.pushNamedAndRemoveUntil(
@@ -387,7 +401,7 @@ class _FacultyProfileTabState extends State<FacultyProfileTab> {
                 const SizedBox(height: 32),
                 Center(
                   child: Text(
-                    "Version 1.0.0",
+                    "Version 1.0.1",
                     style: FacultyTextStyles.bodySmall.copyWith(color: FacultyColors.gray400),
                   ),
                 ),

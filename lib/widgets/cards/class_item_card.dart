@@ -119,8 +119,7 @@ class ClassItemCard extends StatelessWidget {
                             color: _getStatusBg(status),
                             borderRadius: BorderRadius.circular(100),
                             border: Border.all(
-                                color: _getStatusBg(status).withOpacity(
-                                    0.5)), // slightly darker border
+                                color: _getStatusBg(status).withOpacity(0.5)), // slightly darker border
                           ),
                           child: Text(
                             status,

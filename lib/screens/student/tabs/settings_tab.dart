@@ -213,6 +213,7 @@ class _SettingsTabState extends State<SettingsTab> {
                   label: "Logout",
                   labelColor: AppColors.red500,
                   onTap: () async {
+                    await _apiService.clearCache();
                     await AuthService().signOut();
                     if (context.mounted) {
                       Navigator.pushNamedAndRemoveUntil(

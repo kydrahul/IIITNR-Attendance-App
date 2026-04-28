@@ -59,36 +59,50 @@ class _HomeTabState extends State<HomeTab> {
 
   Future<void> _fetchData() async {
     try {
-      // Fetch Timetable
-      final timetableData = await _apiService.getTimetable();
-      final Map<String, List<ScheduleItem>> parsedSchedule = {};
+      // 1. Try to load from cache first
+      final cachedTimetable = await _apiService.getTimetable(forceRefresh: false);
+      final cachedCoursesRaw = await _apiService.getCourses(forceRefresh: false);
 
-      timetableData.forEach((day, classes) {
-        parsedSchedule[day] = (classes as List).map((json) {
-          return ScheduleItem.fromJson({
-            ...json,
-            'status': 'Upcoming',
-          });
-        }).toList();
-      });
-
-      // Fetch Courses (for Search & Details)
-      final rawCourses = await _apiService.getCourses();
-      final courses = rawCourses.map((json) => Course.fromJson(json)).toList();
-
-      if (mounted) {
-        setState(() {
-          _schedule = parsedSchedule;
-          _allCourses = courses;
-          _filteredCourses = courses; // Init filtered list
-          _isLoading = false;
-        });
+      if (cachedTimetable.isNotEmpty || cachedCoursesRaw.isNotEmpty) {
+        _updateUI(cachedTimetable, cachedCoursesRaw);
       }
+
+      // 2. Fetch fresh data in the background
+      final freshTimetable = await _apiService.getTimetable(forceRefresh: true);
+      final freshCoursesRaw = await _apiService.getCourses(forceRefresh: true);
+
+      _updateUI(freshTimetable, freshCoursesRaw);
     } catch (e) {
       print('Error fetching data: $e');
-      if (mounted) {
+      if (mounted && _schedule.isEmpty) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  void _updateUI(
+      Map<String, dynamic> timetableData, List<dynamic> rawCoursesData) {
+    final Map<String, List<ScheduleItem>> parsedSchedule = {};
+
+    timetableData.forEach((day, classes) {
+      parsedSchedule[day] = (classes as List).map((json) {
+        return ScheduleItem.fromJson({
+          ...json,
+          'status': 'Upcoming',
+        });
+      }).toList();
+    });
+
+    final courses =
+        rawCoursesData.map((json) => Course.fromJson(json)).toList();
+
+    if (mounted) {
+      setState(() {
+        _schedule = parsedSchedule;
+        _allCourses = courses;
+        _filteredCourses = courses;
+        _isLoading = false;
+      });
     }
   }
 
@@ -128,52 +142,66 @@ class _HomeTabState extends State<HomeTab> {
 
   // REPLACED _buildScanButton
   Widget _buildScanButton() {
-    return GestureDetector(
-      onTap: _showScanner,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        decoration: BoxDecoration(
-          color: AppColors.blue600,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.blue600.withOpacity(0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          colors: [AppColors.blue600, Color(0xFF4F46E5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.blue600.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _showScanner,
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: const Icon(LucideIcons.qrCode,
-                      color: AppColors.white, size: 24),
+                      color: Colors.white, size: 28),
                 ),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Scan QR Code",
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Quick Scan",
                         style: AppTextStyles.h3.copyWith(
-                            color: AppColors.white,
-                            fontWeight: FontWeight.bold)),
-                    Text("Mark your attendance",
-                        style: AppTextStyles.bodySmall
-                            .copyWith(color: AppColors.blue100)),
-                  ],
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Tap to mark your attendance",
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: Colors.white.withOpacity(0.8),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const Icon(LucideIcons.chevronRight, color: Colors.white),
               ],
             ),
-            const Icon(LucideIcons.chevronRight, color: AppColors.white),
-          ],
+          ),
         ),
       ),
     );

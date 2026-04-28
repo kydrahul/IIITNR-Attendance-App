@@ -53,14 +53,26 @@ class _QRScannerScreenContent extends StatelessWidget {
                         context: context,
                         barrierDismissible: false,
                         builder: (ctx) => AlertDialog(
-                          title: const Text('Success!'),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          title: const Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.green),
+                              SizedBox(width: 8),
+                              Text('Success'),
+                            ],
+                          ),
                           content: Text(message),
                           actions: [
-                            TextButton(
+                            ElevatedButton(
                               onPressed: () {
                                 Navigator.pop(ctx); // Close dialog
                                 Navigator.pop(context); // Close scanner
                               },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF6366F1),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
                               child: const Text('OK'),
                             ),
                           ],
@@ -72,13 +84,18 @@ class _QRScannerScreenContent extends StatelessWidget {
                       showDialog(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: const Text('Error'),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          title: const Row(
+                            children: [
+                              Icon(Icons.error, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Failed'),
+                            ],
+                          ),
                           content: Text(e.toString()),
                           actions: [
                             TextButton(
-                              onPressed: () {
-                                Navigator.pop(ctx);
-                              },
+                              onPressed: () => Navigator.pop(ctx),
                               child: const Text('Try Again'),
                             ),
                           ],
@@ -96,26 +113,59 @@ class _QRScannerScreenContent extends StatelessWidget {
           CustomPaint(
             painter: ScannerOverlayPainter(
               scanWindow: scanWindow,
-              borderRadius: 20.0,
+              borderRadius: 24.0,
             ),
             child: Container(),
           ),
 
-          // 3. White Border for Scan Area
+          // 3. Premium Border for Scan Area
           Center(
             child: Container(
               width: scanWindowSize,
               height: scanWindowSize,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.white, width: 2.0),
-                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.0),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Stack(
+                children: [
+                  // Animated-like corners
+                  Positioned(
+                    top: 0, left: 0,
+                    child: Container(width: 40, height: 40, decoration: const BoxDecoration(
+                      border: Border(top: BorderSide(color: Color(0xFF6366F1), width: 4), left: BorderSide(color: Color(0xFF6366F1), width: 4)),
+                      borderRadius: BorderRadius.only(topLeft: Radius.circular(24)),
+                    )),
+                  ),
+                  Positioned(
+                    top: 0, right: 0,
+                    child: Container(width: 40, height: 40, decoration: const BoxDecoration(
+                      border: Border(top: BorderSide(color: Color(0xFF6366F1), width: 4), right: BorderSide(color: Color(0xFF6366F1), width: 4)),
+                      borderRadius: BorderRadius.only(topRight: Radius.circular(24)),
+                    )),
+                  ),
+                  Positioned(
+                    bottom: 0, left: 0,
+                    child: Container(width: 40, height: 40, decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Color(0xFF6366F1), width: 4), left: BorderSide(color: Color(0xFF6366F1), width: 4)),
+                      borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24)),
+                    )),
+                  ),
+                  Positioned(
+                    bottom: 0, right: 0,
+                    child: Container(width: 40, height: 40, decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Color(0xFF6366F1), width: 4), right: BorderSide(color: Color(0xFF6366F1), width: 4)),
+                      borderRadius: BorderRadius.only(bottomRight: Radius.circular(24)),
+                    )),
+                  ),
+                ],
               ),
             ),
           ),
 
           // 4. Top Controls (Flash and Close)
           Positioned(
-            top: 50,
+            top: 60,
             left: 20,
             right: 20,
             child: Row(
@@ -123,9 +173,13 @@ class _QRScannerScreenContent extends StatelessWidget {
               children: [
                 GestureDetector(
                   onTap: provider.toggleTorch,
-                  child: CircleAvatar(
-                    backgroundColor: Colors.black.withOpacity(0.5),
-                    radius: 24,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    ),
                     child: Icon(
                       provider.isTorchOn ? Icons.flash_on : Icons.flash_off,
                       color: Colors.white,
@@ -133,11 +187,23 @@ class _QRScannerScreenContent extends StatelessWidget {
                     ),
                   ),
                 ),
+                Text(
+                  "Scan Attendance",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
-                  child: CircleAvatar(
-                    backgroundColor: Colors.black.withOpacity(0.5),
-                    radius: 24,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    ),
                     child: const Icon(
                       Icons.close,
                       color: Colors.white,
@@ -149,44 +215,41 @@ class _QRScannerScreenContent extends StatelessWidget {
             ),
           ),
 
-          // 5. Bottom Controls (Text and Indicator)
+          // 5. Bottom Instructions
           Positioned(
-            bottom: 60,
-            left: 0,
-            right: 0,
+            bottom: 80,
+            left: 40,
+            right: 40,
             child: Column(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withOpacity(0.7),
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
                   ),
-                  child: const Text(
-                    "Scan QR code to mark attendance",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: const Text(
-                    "QR CODE",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0,
-                    ),
+                  child: const Column(
+                    children: [
+                      Text(
+                        "Align the QR code within the frame",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        "Hold steady for a few seconds",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -201,14 +264,23 @@ class _QRScannerScreenContent extends StatelessWidget {
                  child: Column(
                    mainAxisAlignment: MainAxisAlignment.center,
                    children: [
-                     CircularProgressIndicator(color: Colors.white),
-                     SizedBox(height: 20),
+                     CircularProgressIndicator(color: Color(0xFF6366F1), strokeWidth: 5),
+                     SizedBox(height: 24),
                      Text(
                        'Marking Attendance...',
                        style: TextStyle(
                          color: Colors.white,
-                         fontSize: 18,
+                         fontSize: 20,
                          fontWeight: FontWeight.bold,
+                         letterSpacing: 1.2,
+                       ),
+                     ),
+                     SizedBox(height: 8),
+                     Text(
+                       'Please don\'t close the app',
+                       style: TextStyle(
+                         color: Colors.white70,
+                         fontSize: 14,
                        ),
                      ),
                    ],

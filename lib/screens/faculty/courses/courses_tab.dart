@@ -42,9 +42,22 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
   }
 
   Future<void> _fetchCourses() async {
-    setState(() => _isLoading = true);
+    // 1. Try to load cached data first for instant UI response
     try {
-      final courses = await _apiService.listCourses();
+      final cachedCourses = await _apiService.listCourses(forceRefresh: false);
+      if (mounted && cachedCourses.isNotEmpty) {
+        setState(() {
+          _allCourses = cachedCourses;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      // Ignore cache errors
+    }
+
+    // 2. Fetch fresh data in the background
+    try {
+      final courses = await _apiService.listCourses(forceRefresh: true);
       if (mounted) {
         setState(() {
           _allCourses = courses;
@@ -55,6 +68,7 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+      debugPrint('FacultyCoursesTab: Background refresh error: $e');
     }
   }
 

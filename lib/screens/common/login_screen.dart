@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../constants/colors.dart';
 import '../../constants/text_styles.dart';
@@ -73,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
       try {
         final apiService = ApiService();
         await apiService.getProfile(checkProfileExists: true);
-        
+
         await _authService.setUserRole('student');
         // Profile exists, navigate to home via biometric check
         await _handleBiometricAndRoute('/home');
@@ -117,6 +118,49 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      // Validate faculty email
+      final email = userCredential.user?.email ?? '';
+
+      // Must be @iiitnr.edu.in
+      if (!email.endsWith('@iiitnr.edu.in')) {
+        setState(() {
+          _errorMessage =
+              'Only IIITNR faculty can access this app.\nPlease use your @iiitnr.edu.in email.';
+          _isFacultyLoading = false;
+        });
+        await _authService.signOut();
+        return;
+      }
+
+      // Faculty emails don't have numbers (students have roll numbers like bt2024001)
+      final localPart = email.split('@').first;
+      final hasNumbers = RegExp(r'\d').hasMatch(localPart);
+
+      if (hasNumbers) {
+        // Email has numbers — could be a student. Check server-side whitelist.
+        try {
+          final isWhitelisted =
+              await FacultyApiService().verifyFacultyAccess();
+          if (!isWhitelisted) {
+            setState(() {
+              _errorMessage =
+                  'This appears to be a student email.\nFaculty emails don\'t contain numbers.\nContact admin if this is incorrect.';
+              _isFacultyLoading = false;
+            });
+            await _authService.signOut();
+            return;
+          }
+        } catch (e) {
+          setState(() {
+            _errorMessage =
+                'Could not verify faculty access. Please try again.';
+            _isFacultyLoading = false;
+          });
+          await _authService.signOut();
+          return;
+        }
+      }
+
       // Check if profile is complete
       bool isProfileComplete = false;
       try {
@@ -125,7 +169,8 @@ class _LoginScreenState extends State<LoginScreen> {
           isProfileComplete = true;
         }
       } catch (e) {
-        debugPrint('Faculty profile check failed: $e. Assuming first-time login.');
+        debugPrint(
+            'Faculty profile check failed: $e. Assuming first-time login.');
         isProfileComplete = false;
       }
 
@@ -134,7 +179,8 @@ class _LoginScreenState extends State<LoginScreen> {
         if (isProfileComplete) {
           Navigator.pushReplacementNamed(context, '/faculty-home');
         } else {
-          Navigator.pushReplacementNamed(context, '/faculty-profile-completion');
+          Navigator.pushReplacementNamed(
+              context, '/faculty-profile-completion');
         }
       }
     } catch (e) {
@@ -301,7 +347,62 @@ class _LoginScreenState extends State<LoginScreen> {
               style: AppTextStyles.bodySmall.copyWith(color: AppColors.gray400),
               textAlign: TextAlign.center,
             ),
-            const Spacer(flex: 2),
+            const SizedBox(height: 32),
+
+            // --- DEVELOPMENT BYPASS (debug builds only) ---
+            if (kDebugMode) ...[
+              Row(
+                children: [
+                  Expanded(child: Divider(color: AppColors.gray200)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      "DEV BYPASS",
+                      style:
+                          AppTextStyles.label.copyWith(color: AppColors.gray400),
+                    ),
+                  ),
+                  Expanded(child: Divider(color: AppColors.gray200)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () =>
+                          Navigator.pushReplacementNamed(context, '/home'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side:
+                            BorderSide(color: AppColors.blue600.withOpacity(0.3)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text("Student App",
+                          style:
+                              TextStyle(color: AppColors.blue600, fontSize: 13)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pushReplacementNamed(
+                          context, '/faculty-home'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(color: AppColors.black.withOpacity(0.3)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text("Faculty App",
+                          style: TextStyle(color: AppColors.black, fontSize: 13)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const Spacer(flex: 1),
           ],
         ),
       ),

@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 class ScheduleItem {
   final int id;
   final String courseId; // Added courseId
@@ -51,7 +53,7 @@ class Course {
   final String name;
   final String faculty;
   final int credits;
-  final int attendance;
+  final double attendance;
   final int totalClasses;
   final int attended;
   final int missed;
@@ -77,7 +79,7 @@ class Course {
       name: json['name'] ?? '',
       faculty: json['facultyName'] ?? json['faculty'] ?? '',
       credits: json['credits'] ?? 0,
-      attendance: json['attendance'] ?? 0,
+      attendance: (json['attendance'] as num?)?.toDouble() ?? 0.0,
       totalClasses: json['totalClasses'] ?? 0,
       attended: json['attended'] ?? 0,
       missed: json['missed'] ?? 0,
@@ -98,7 +100,7 @@ class ContactInfo {
 
   factory ContactInfo.fromJson(Map<String, dynamic> json) {
     return ContactInfo(
-      phone: json['phone'] ?? '',
+      phone: (json['phone'] ?? json['mobile'] ?? '').toString(),
       email: json['email'] ?? '',
     );
   }
@@ -147,7 +149,7 @@ class AttendanceRecord {
     if (json['markedAt'] != null) {
       dateTime = DateTime.parse(json['markedAt']).toLocal();
       dateStr = dateTime.toString().split(' ')[0];
-      timeStr = dateTime.toString().split(' ')[1].substring(0, 5);
+      timeStr = DateFormat('hh:mm a').format(dateTime);
     } else {
       dateStr = json['date'] ?? '';
       timeStr = json['time'] ?? '';

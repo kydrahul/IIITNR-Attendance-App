@@ -19,7 +19,7 @@ import 'utils/global_error_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   GlobalErrorHandler.initialize();
 
   try {
@@ -93,7 +93,7 @@ class _StudentAppState extends State<StudentApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        Provider.value(value: null), // Placeholder
+        Provider<AuthService>.value(value: AuthService()),
       ],
       child: MaterialApp(
         title: 'IIITNR Attendance',

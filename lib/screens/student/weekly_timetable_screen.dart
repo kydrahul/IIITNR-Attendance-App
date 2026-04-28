@@ -178,20 +178,19 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
   Widget _buildHeaderRow() {
     return Row(
       children: [
-        // Empty cell for time column
         Container(
-          width: 40,
-          height: 24,
+          width: 50,
+          height: 32,
           decoration: BoxDecoration(
             color: AppColors.gray100,
             border: Border.all(color: AppColors.gray300, width: 1),
           ),
         ),
-        _buildCell("Mon", CellType.header, width: 60),
-        _buildCell("Tue", CellType.header, width: 60),
-        _buildCell("Wed", CellType.header, width: 60),
-        _buildCell("Thu", CellType.header, width: 60),
-        _buildCell("Fri", CellType.header, width: 60),
+        _buildCell("Mon", CellType.header, width: 85, height: 32),
+        _buildCell("Tue", CellType.header, width: 85, height: 32),
+        _buildCell("Wed", CellType.header, width: 85, height: 32),
+        _buildCell("Thu", CellType.header, width: 85, height: 32),
+        _buildCell("Fri", CellType.header, width: 85, height: 32),
       ],
     );
   }
@@ -200,7 +199,6 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
     // Helper to find class for a specific day and time
     String getClassFor(String day, String timeSlot) {
       if (_timetable[day] == null) {
-        print("DEBUG: No data for $day");
         return "";
       }
 
@@ -209,8 +207,6 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
       final slotTime = timeSlot.split(':')[0].padLeft(2, '0');
 
       for (var cls in classes) {
-        print(
-            "DEBUG: Checking class ${cls['courseName']} at ${cls['time']} against slot $slotTime");
         final classTime = cls['time']
             .toString()
             .split(' - ')[0]
@@ -218,7 +214,6 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
             .padLeft(2, '0');
 
         if (classTime == slotTime) {
-          print("DEBUG: MATCH FOUND for $day $timeSlot: ${cls['courseName']}");
           return "${cls['courseName']}\n${cls['facultyName']}";
         }
       }
@@ -227,17 +222,17 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
 
     return Row(
       children: [
-        _buildCell(time, CellType.time, width: 40, height: 48),
+        _buildCell(time, CellType.time, width: 50, height: 60),
         _buildCell(getClassFor("Monday", time), CellType.classCell,
-            width: 60, height: 48),
+            width: 85, height: 60),
         _buildCell(getClassFor("Tuesday", time), CellType.classCell,
-            width: 60, height: 48),
+            width: 85, height: 60),
         _buildCell(getClassFor("Wednesday", time), CellType.classCell,
-            width: 60, height: 48),
+            width: 85, height: 60),
         _buildCell(getClassFor("Thursday", time), CellType.classCell,
-            width: 60, height: 48),
+            width: 85, height: 60),
         _buildCell(getClassFor("Friday", time), CellType.classCell,
-            width: 60, height: 48),
+            width: 85, height: 60),
       ],
     );
   }
@@ -245,8 +240,8 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
   Widget _buildLunchRow() {
     return Row(
       children: [
-        _buildCell("1:00", CellType.time, width: 40, height: 48),
-        _buildCell("Lunch", CellType.breakCell, width: 300, height: 48),
+        _buildCell("1:00", CellType.time, width: 50, height: 48),
+        _buildCell("LUNCH BREAK", CellType.breakCell, width: 425, height: 48),
       ],
     );
   }
@@ -269,9 +264,8 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
         bgColor = AppColors.gray100;
         textColor = AppColors.black;
         fontWeight = FontWeight.bold;
-        fontSize = 7;
-        padding =
-            const EdgeInsets.symmetric(horizontal: 2, vertical: 12); // py-3
+        fontSize = 11;
+        padding = const EdgeInsets.symmetric(horizontal: 4, vertical: 12);
         textStyle = TextStyle(
           fontWeight: fontWeight,
           fontSize: fontSize,
@@ -283,11 +277,10 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
       case CellType.time:
         bgColor = AppColors.white;
         textColor = AppColors.gray500;
-        fontWeight = FontWeight.normal;
-        fontSize = 7;
-        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 24);
+        fontWeight = FontWeight.w500;
+        fontSize = 10;
+        padding = const EdgeInsets.symmetric(horizontal: 4, vertical: 12);
         textStyle = TextStyle(
-          fontFamily: 'monospace',
           fontSize: fontSize,
           fontWeight: fontWeight,
           color: textColor,
@@ -297,10 +290,9 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
       case CellType.classCell:
         bgColor = text.isNotEmpty ? AppColors.white : AppColors.gray50;
         textColor = AppColors.black;
-        fontWeight = FontWeight.normal;
-        fontSize = 8;
-        padding = const EdgeInsets.symmetric(
-            horizontal: 2, vertical: 12); // Adjusted padding
+        fontWeight = FontWeight.w600;
+        fontSize = 11;
+        padding = const EdgeInsets.symmetric(horizontal: 6, vertical: 8);
         textStyle = TextStyle(
           fontSize: fontSize,
           fontWeight: fontWeight,
@@ -312,8 +304,8 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
         bgColor = AppColors.gray50;
         textColor = AppColors.gray400;
         fontWeight = FontWeight.w300;
-        fontSize = 8;
-        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 24);
+        fontSize = 10;
+        padding = const EdgeInsets.all(4);
         textStyle = TextStyle(
           fontSize: fontSize,
           fontWeight: fontWeight,
@@ -323,15 +315,15 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
         );
         break;
       case CellType.breakCell:
-        bgColor = AppColors.gray200;
-        textColor = AppColors.black;
+        bgColor = AppColors.blue50;
+        textColor = AppColors.blue700;
         fontWeight = FontWeight.bold;
-        fontSize = 7;
-        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 24);
+        fontSize = 12;
+        padding = const EdgeInsets.symmetric(horizontal: 8, vertical: 12);
         textStyle = TextStyle(
           fontSize: fontSize,
           fontWeight: fontWeight,
-          letterSpacing: 1.5,
+          letterSpacing: 2.0,
           color: textColor,
           height: 1.0,
         );

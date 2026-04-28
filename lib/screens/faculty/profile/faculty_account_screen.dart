@@ -125,7 +125,7 @@ class _FacultyAccountScreenState extends State<FacultyAccountScreen> {
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  gradient: LinearGradient(
+                                  gradient: const LinearGradient(
                                     colors: [
                                       FacultyColors.blue600,
                                       FacultyColors.blue500

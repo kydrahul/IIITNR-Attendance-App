@@ -41,38 +41,52 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
   }
 
   Future<void> _fetchCourseData() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    final courseId = widget.course['id']?.toString() ?? '';
+    if (courseId.isEmpty) return;
 
     try {
-      final courseId = widget.course['id']?.toString() ?? '';
-      if (courseId.isEmpty) throw Exception('Course ID is missing');
-
-      final gridData = await _apiService.getCourseAttendanceGrid(courseId);
-      
-      if (mounted) {
-        setState(() {
-          _sessions = gridData['sessions'] ?? [];
-          // Sort sessions by date descending for activity/overview
-          _sessions.sort((a, b) {
-            final dateA = DateTime.parse(a['date'].toString());
-            final dateB = DateTime.parse(b['date'].toString());
-            return dateB.compareTo(dateA);
-          });
-          _students = gridData['students'] ?? [];
-          _isLoading = false;
-        });
+      // 1. Load from cache first
+      final cachedGrid = await _apiService.getCourseAttendanceGrid(courseId,
+          forceRefresh: false);
+      if (cachedGrid.isNotEmpty) {
+        _updateUI(cachedGrid);
       }
+
+      // 2. Fetch fresh data in the background
+      final freshGrid = await _apiService.getCourseAttendanceGrid(courseId,
+          forceRefresh: true);
+      _updateUI(freshGrid);
     } catch (e) {
-      if (mounted) {
+      if (mounted && _sessions.isEmpty) {
         setState(() {
           _errorMessage = e.toString();
           _isLoading = false;
         });
       }
     }
+  }
+
+  void _updateUI(Map<String, dynamic> gridData) {
+    if (!mounted) return;
+
+    final List<dynamic> sessions = gridData['sessions'] ?? [];
+    // Sort sessions by date descending
+    sessions.sort((a, b) {
+      try {
+        final dateA = DateTime.parse(a['date'].toString());
+        final dateB = DateTime.parse(b['date'].toString());
+        return dateB.compareTo(dateA);
+      } catch (_) {
+        return 0;
+      }
+    });
+
+    setState(() {
+      _sessions = sessions;
+      _students = gridData['students'] ?? [];
+      _isLoading = false;
+      _errorMessage = null;
+    });
   }
 
   void _showExportDialog() {

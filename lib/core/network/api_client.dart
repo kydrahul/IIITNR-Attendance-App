@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../services/auth_service.dart';
 import '../../services/device_service.dart';
 import '../../config/app_config.dart';
+import '../../main.dart'; // For navigatorKey
 
 class ApiException implements Exception {
   final int statusCode;
@@ -127,6 +129,24 @@ class ApiClient {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return data;
     } else {
+      // Handle token expiration — auto sign out and redirect to login
+      if (response.statusCode == 401) {
+        debugPrint(
+            'api_client: 401 Unauthorized — signing out and redirecting to login');
+        _authService.signOut();
+        // Import is already available via navigatorKey in main.dart
+        // We use a delayed microtask to avoid issues during build
+        Future.microtask(() {
+          try {
+            final context = navigatorKey.currentContext;
+            if (context != null) {
+              Navigator.of(context)
+                  .pushNamedAndRemoveUntil('/login', (route) => false);
+            }
+          } catch (_) {}
+        });
+      }
+
       String errorMessage = 'Request failed';
       if (data is Map && data['error'] != null) {
         errorMessage = data['error'].toString();

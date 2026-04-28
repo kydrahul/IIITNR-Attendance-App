@@ -31,22 +31,33 @@ class _CoursesTabState extends State<CoursesTab> {
   }
 
   Future<void> _loadCourses() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
     try {
-      final coursesData = await _apiService.getCourses();
-      setState(() {
-        _courses = coursesData.map((json) => Course.fromJson(json)).toList();
-        _isLoading = false;
-      });
+      // 1. Load from cache first
+      final cachedCoursesData = await _apiService.getCourses(forceRefresh: false);
+      if (cachedCoursesData.isNotEmpty) {
+        setState(() {
+          _courses =
+              cachedCoursesData.map((json) => Course.fromJson(json)).toList();
+          _isLoading = false;
+        });
+      }
+
+      // 2. Fetch fresh data in the background
+      final freshCoursesData = await _apiService.getCourses(forceRefresh: true);
+      if (mounted) {
+        setState(() {
+          _courses =
+              freshCoursesData.map((json) => Course.fromJson(json)).toList();
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to load courses: ${e.toString()}';
-        _isLoading = false;
-      });
+      if (mounted && _courses.isEmpty) {
+        setState(() {
+          _errorMessage = 'Failed to load courses: ${e.toString()}';
+          _isLoading = false;
+        });
+      }
     }
   }
 

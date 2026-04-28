@@ -127,17 +127,20 @@ class LiveSessionProvider extends ChangeNotifier {
 
   Future<void> _init() async {
     debugPrint('LiveSessionProvider: Starting parallel initialization...');
-    
+
     // We run these in parallel so one slow API doesn't block the others
     await Future.wait([
-      _loadSettings().then((_) => debugPrint('LiveSessionProvider: Settings loaded')),
-      fetchRooms().then((_) => debugPrint('LiveSessionProvider: Rooms loaded (${_rooms.length})')),
-      _initializeStudents().then((_) => debugPrint('LiveSessionProvider: Students loaded')),
+      _loadSettings()
+          .then((_) => debugPrint('LiveSessionProvider: Settings loaded')),
+      fetchRooms().then((_) =>
+          debugPrint('LiveSessionProvider: Rooms loaded (${_rooms.length})')),
+      _initializeStudents()
+          .then((_) => debugPrint('LiveSessionProvider: Students loaded')),
     ]).catchError((e) {
       debugPrint('LiveSessionProvider: Initialization error: $e');
       return []; // Return empty list to satisfy Future.wait
     });
-    
+
     debugPrint('LiveSessionProvider: Initialization complete.');
   }
 
@@ -147,7 +150,8 @@ class LiveSessionProvider extends ChangeNotifier {
     try {
       debugPrint('LiveSessionProvider: Calling _apiService.getRooms()...');
       _rooms = await _apiService.getRooms();
-      debugPrint('LiveSessionProvider: Successfully fetched ${_rooms.length} rooms.');
+      debugPrint(
+          'LiveSessionProvider: Successfully fetched ${_rooms.length} rooms.');
     } catch (e) {
       debugPrint('LiveSessionProvider: Failed to fetch rooms: $e');
     } finally {
@@ -171,7 +175,7 @@ class LiveSessionProvider extends ChangeNotifier {
           throw Exception("Location permission denied.");
         }
       }
-      
+
       if (permission == LocationPermission.deniedForever) {
         throw Exception("Location permissions are permanently denied.");
       }
@@ -179,7 +183,7 @@ class LiveSessionProvider extends ChangeNotifier {
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.best,
       );
-      
+
       List<RoomModel> candidates = [];
 
       for (var room in _rooms) {
@@ -189,7 +193,7 @@ class LiveSessionProvider extends ChangeNotifier {
           room.latitude,
           room.longitude,
         );
-        
+
         // Potential candidate if within 30m
         if (distance < 30) {
           candidates.add(room);
@@ -199,8 +203,10 @@ class LiveSessionProvider extends ChangeNotifier {
       // Sort by distance if multiple candidates
       if (candidates.length > 1) {
         candidates.sort((a, b) {
-          final distA = Geolocator.distanceBetween(position.latitude, position.longitude, a.latitude, a.longitude);
-          final distB = Geolocator.distanceBetween(position.latitude, position.longitude, b.latitude, b.longitude);
+          final distA = Geolocator.distanceBetween(
+              position.latitude, position.longitude, a.latitude, a.longitude);
+          final distB = Geolocator.distanceBetween(
+              position.latitude, position.longitude, b.latitude, b.longitude);
           return distA.compareTo(distB);
         });
         return candidates;
@@ -209,7 +215,7 @@ class LiveSessionProvider extends ChangeNotifier {
         notifyListeners();
         return candidates;
       }
-      
+
       return [];
     } catch (e) {
       debugPrint('Proximity detection failed: $e');
@@ -219,7 +225,7 @@ class LiveSessionProvider extends ChangeNotifier {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // 1. Local overrides (Radius, Interval)
     _locationRadius = prefs.getInt('default_scan_radius') ?? 50;
     _autoRefreshInterval = prefs.getInt('default_qr_refresh_interval') ?? 10;
@@ -241,7 +247,8 @@ class LiveSessionProvider extends ChangeNotifier {
 
   Future<void> _initializeStudents() async {
     try {
-      final listed = await _apiService.listCourseStudents(course['id'], sessionId: _sessionId);
+      final listed = await _apiService.listCourseStudents(course['id'],
+          sessionId: _sessionId);
       _students.clear();
       for (var student in listed) {
         _students.add({
@@ -260,17 +267,20 @@ class LiveSessionProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateAttendance(Map<String, dynamic> student, bool isPresent) async {
+  Future<void> updateAttendance(
+      Map<String, dynamic> student, bool isPresent) async {
     final originalStatus = student['isPresent'];
     if (originalStatus != isPresent) {
       // 1. Update local state immediately (Optimistic UI)
       student['isPresent'] = isPresent;
       student['isEdited'] = true;
-      student['isUpdating'] = true; // Prevent polling from overwriting while we save
+      student['isUpdating'] =
+          true; // Prevent polling from overwriting while we save
 
       final now = DateTime.now();
       String ampm = now.hour >= 12 ? 'PM' : 'AM';
-      int hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+      int hour =
+          now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
       String minute = now.minute.toString().padLeft(2, '0');
       student['markedTime'] = '$hour:$minute $ampm';
 
@@ -299,7 +309,8 @@ class LiveSessionProvider extends ChangeNotifier {
   }
 
   Future<void> generateQR() async {
-    if (_isLocationRequired && _selectedRoom == null) throw Exception("Please select a classroom");
+    if (_isLocationRequired && _selectedRoom == null)
+      throw Exception("Please select a classroom");
 
     RoomModel? room;
     if (_selectedRoom != null) {
@@ -400,7 +411,8 @@ class LiveSessionProvider extends ChangeNotifier {
             _students[index]['isPresent'] = isPresent;
             updated = true;
           }
-          if (updatedStudent.markedAt != null && _students[index]['markedTime'] != updatedStudent.markedAt) {
+          if (updatedStudent.markedAt != null &&
+              _students[index]['markedTime'] != updatedStudent.markedAt) {
             _students[index]['markedTime'] = updatedStudent.markedAt!;
             updated = true;
           }
