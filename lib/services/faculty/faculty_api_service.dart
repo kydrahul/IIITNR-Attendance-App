@@ -273,6 +273,19 @@ class FacultyApiService {
     }
   }
 
+  Future<void> archiveCourse(String courseId, {bool archive = true}) async {
+    try {
+      await _apiClient.put('/faculty/courses/$courseId', body: {
+        'isArchived': archive,
+      });
+      _cachedCourses = null;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kCoursesKey);
+    } on ApiException catch (e) {
+      throw Exception(e.message);
+    }
+  }
+
   /// Clears all local caches. Use this on logout.
   Future<void> clearCache() async {
     _cachedProfile = null;
@@ -281,5 +294,28 @@ class FacultyApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kProfileKey);
     await prefs.remove(_kCoursesKey);
+  }
+
+  /// Fetch pending intern join requests for a course
+  Future<List<Map<String, dynamic>>> getJoinRequests(String courseId) async {
+    try {
+      final response = await _apiClient.get('/faculty/courses/$courseId/join-requests');
+      final List<dynamic> requests = response['requests'] ?? [];
+      return requests.cast<Map<String, dynamic>>();
+    } on ApiException catch (e) {
+      throw Exception(e.message);
+    }
+  }
+
+  /// Approve or deny a pending join request
+  Future<void> reviewJoinRequest(String courseId, String enrollmentId, String action) async {
+    try {
+      await _apiClient.post(
+        '/faculty/courses/$courseId/join-requests/$enrollmentId',
+        body: {'action': action},
+      );
+    } on ApiException catch (e) {
+      throw Exception(e.message);
+    }
   }
 }

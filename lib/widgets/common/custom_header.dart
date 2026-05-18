@@ -42,7 +42,7 @@ class _CustomHeaderState extends State<CustomHeader> {
         });
       }
     } catch (e) {
-      print('Error fetching profile: $e');
+      debugPrint('Error fetching profile: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }

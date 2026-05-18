@@ -43,7 +43,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
         });
       }
     } catch (e) {
-      print('Error fetching history: $e');
+      debugPrint('Error fetching history: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }

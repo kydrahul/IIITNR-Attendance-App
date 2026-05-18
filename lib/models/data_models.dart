@@ -59,6 +59,7 @@ class Course {
   final int missed;
   final ContactInfo contact;
   final List<ClassSchedule> schedule;
+  final String status; // 'approved', 'pending', 'denied'
 
   Course({
     required this.id,
@@ -71,6 +72,7 @@ class Course {
     required this.missed,
     required this.contact,
     required this.schedule,
+    this.status = 'approved',
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -84,10 +86,11 @@ class Course {
       attended: json['attended'] ?? 0,
       missed: json['missed'] ?? 0,
       contact: ContactInfo.fromJson(json['contact'] ?? {}),
-      schedule: (json['schedule'] as List<dynamic>?)
+      schedule: ((json['schedule'] ?? json['timetable']) as List<dynamic>?)
               ?.map((e) => ClassSchedule.fromJson(e))
               .toList() ??
           [],
+      status: json['status'] ?? 'approved',
     );
   }
 }

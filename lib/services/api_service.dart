@@ -103,6 +103,33 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> createInternProfile({
+    required String name,
+    required String college,
+    String? assignedFaculty,
+    required String internshipStart,
+    required String internshipEnd,
+  }) async {
+    try {
+      final response = await _apiClient.post('/student/profile', body: {
+        'name': name,
+        'college': college,
+        'assignedFaculty': assignedFaculty,
+        'internshipStart': internshipStart,
+        'internshipEnd': internshipEnd,
+        'userType': 'intern',
+      });
+      _cachedProfile = response['student'];
+      _saveToPrefs(_kProfileKey, _cachedProfile);
+      return response;
+    } on ApiException catch (e) {
+      if (e.statusCode == 403) {
+        throw DeviceMismatchException(e.message);
+      }
+      throw Exception('Failed to create intern profile: ${e.message}');
+    }
+  }
+
   Future<Map<String, dynamic>> getDashboard({bool forceRefresh = false}) async {
     if (!forceRefresh) {
       if (_cachedDashboard != null) return _cachedDashboard!;

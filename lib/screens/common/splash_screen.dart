@@ -45,6 +45,8 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
 
+      // For both students and interns, check profile and biometrics
+
       // Pass true to bypass cache and verify real DB existence
       await _apiService.getProfile(checkProfileExists: true);
 
@@ -69,10 +71,17 @@ class _SplashScreenState extends State<SplashScreen> {
         }
       }
     } catch (e) {
-      print('Profile check failed: $e');
+      debugPrint('Profile check failed: $e');
 
       if (e.toString().contains('Profile not found')) {
-        if (mounted) Navigator.pushReplacementNamed(context, '/profile-setup');
+        final role = await _authService.getUserRole();
+        if (mounted) {
+          if (role == 'intern') {
+            Navigator.pushReplacementNamed(context, '/intern-profile-setup');
+          } else {
+            Navigator.pushReplacementNamed(context, '/profile-setup');
+          }
+        }
       } else {
         // Show error dialog for other errors (e.g. 500, Network)
         if (mounted) {

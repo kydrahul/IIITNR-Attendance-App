@@ -149,7 +149,7 @@ class ClassItemCard extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              _buildStat("CREDITS", credits.toString()),
+                              _buildStat("CREDITS", credits == 0 ? "N/A" : credits.toString()),
                               Container(
                                 width: 1,
                                 height: 24,

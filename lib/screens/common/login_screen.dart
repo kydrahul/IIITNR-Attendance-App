@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../constants/colors.dart';
 import '../../constants/text_styles.dart';
@@ -16,9 +15,11 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
+
   bool _isStudentLoading = false;
   bool _isFacultyLoading = false;
-  bool get _isLoading => _isStudentLoading || _isFacultyLoading;
+  bool _isInternLoading = false;
+  bool get _isLoading => _isStudentLoading || _isFacultyLoading || _isInternLoading;
   String? _errorMessage;
 
   Future<void> _handleBiometricAndRoute(String targetRoute) async {
@@ -102,6 +103,55 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleInternLogin() async {
+    setState(() {
+      _isInternLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final userCredential = await _authService.signInWithGoogle();
+
+      if (userCredential == null) {
+        setState(() {
+          _isInternLoading = false;
+        });
+        return;
+      }
+
+      // No email domain restriction for interns — any email is allowed
+
+      // Check if profile exists
+      try {
+        final apiService = ApiService();
+        await apiService.getProfile(checkProfileExists: true);
+
+        await _authService.setUserRole('intern');
+        // Profile exists, navigate to home via biometric check
+        await _handleBiometricAndRoute('/home');
+      } catch (e) {
+        if (e.toString().contains('Profile not found')) {
+          await _authService.setUserRole('intern');
+          // Profile doesn't exist, navigate to intern profile setup
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/intern-profile-setup');
+          }
+        } else {
+          setState(() {
+            _errorMessage =
+                'Login Error: ${e.toString().replaceAll("Exception:", "")}';
+            _isInternLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to sign in: ${e.toString()}';
+        _isInternLoading = false;
+      });
+    }
+  }
+
   Future<void> _handleFacultyLogin() async {
     setState(() {
       _isFacultyLoading = true;
@@ -118,48 +168,39 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // Validate faculty email
-      final email = userCredential.user?.email ?? '';
-
-      // Must be @iiitnr.edu.in
-      if (!email.endsWith('@iiitnr.edu.in')) {
-        setState(() {
-          _errorMessage =
-              'Only IIITNR faculty can access this app.\nPlease use your @iiitnr.edu.in email.';
-          _isFacultyLoading = false;
-        });
-        await _authService.signOut();
-        return;
-      }
-
-      // Faculty emails don't have numbers (students have roll numbers like bt2024001)
-      final localPart = email.split('@').first;
-      final hasNumbers = RegExp(r'\d').hasMatch(localPart);
-
-      if (hasNumbers) {
-        // Email has numbers — could be a student. Check server-side whitelist.
-        try {
-          final isWhitelisted =
-              await FacultyApiService().verifyFacultyAccess();
-          if (!isWhitelisted) {
-            setState(() {
-              _errorMessage =
-                  'This appears to be a student email.\nFaculty emails don\'t contain numbers.\nContact admin if this is incorrect.';
-              _isFacultyLoading = false;
-            });
-            await _authService.signOut();
-            return;
-          }
-        } catch (e) {
-          setState(() {
-            _errorMessage =
-                'Could not verify faculty access. Please try again.';
-            _isFacultyLoading = false;
-          });
-          await _authService.signOut();
-          return;
-        }
-      }
+      // TODO: UNCOMMENT FOR PRODUCTION — restrict to @iiitnr.edu.in only
+      // final email = userCredential.user?.email ?? '';
+      // if (!email.endsWith('@iiitnr.edu.in')) {
+      //   setState(() {
+      //     _errorMessage =
+      //         'Only IIITNR faculty can access this app.\nPlease use your @iiitnr.edu.in email.';
+      //     _isFacultyLoading = false;
+      //   });
+      //   await _authService.signOut();
+      //   return;
+      // }
+      // final localPart = email.split('@').first;
+      // final hasNumbers = RegExp(r'\d').hasMatch(localPart);
+      // if (hasNumbers) {
+      //   try {
+      //     final isWhitelisted = await FacultyApiService().verifyFacultyAccess();
+      //     if (!isWhitelisted) {
+      //       setState(() {
+      //         _errorMessage = 'This appears to be a student email.\nFaculty emails don\'t contain numbers.\nContact admin if this is incorrect.';
+      //         _isFacultyLoading = false;
+      //       });
+      //       await _authService.signOut();
+      //       return;
+      //     }
+      //   } catch (e) {
+      //     setState(() {
+      //       _errorMessage = 'Could not verify faculty access. Please try again.';
+      //       _isFacultyLoading = false;
+      //     });
+      //     await _authService.signOut();
+      //     return;
+      //   }
+      // }
 
       // Check if profile is complete
       bool isProfileComplete = false;
@@ -199,7 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            const Spacer(flex: 3),
+            const Spacer(flex: 2),
             // Logo Box
             Container(
               width: 120,
@@ -338,6 +379,68 @@ class _LoginScreenState extends State<LoginScreen> {
               textAlign: TextAlign.center,
             ),
 
+            const SizedBox(height: 20),
+            // Divider with Summer Intern label
+            Row(
+              children: [
+                const Expanded(child: Divider(color: AppColors.gray200)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.wb_sunny, size: 14, color: Colors.amber.shade600),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Summer 2026',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: Colors.amber.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Expanded(child: Divider(color: AppColors.gray200)),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Summer Intern Login Button
+            ElevatedButton(
+              onPressed: _isLoading ? null : _handleInternLogin,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.white,
+                foregroundColor: AppColors.gray700,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: Colors.amber.shade300),
+                ),
+                minimumSize: const Size(double.infinity, 56),
+              ),
+              child: _isInternLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.wb_sunny_outlined,
+                            size: 24, color: Colors.amber.shade700),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Login as Summer Intern',
+                          style: AppTextStyles.h4
+                              .copyWith(fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+            ),
+
             const SizedBox(height: 16),
 
             // Disclaimer
@@ -348,60 +451,6 @@ class _LoginScreenState extends State<LoginScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-
-            // --- DEVELOPMENT BYPASS (debug builds only) ---
-            if (kDebugMode) ...[
-              Row(
-                children: [
-                  Expanded(child: Divider(color: AppColors.gray200)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      "DEV BYPASS",
-                      style:
-                          AppTextStyles.label.copyWith(color: AppColors.gray400),
-                    ),
-                  ),
-                  Expanded(child: Divider(color: AppColors.gray200)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () =>
-                          Navigator.pushReplacementNamed(context, '/home'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side:
-                            BorderSide(color: AppColors.blue600.withOpacity(0.3)),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text("Student App",
-                          style:
-                              TextStyle(color: AppColors.blue600, fontSize: 13)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pushReplacementNamed(
-                          context, '/faculty-home'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: BorderSide(color: AppColors.black.withOpacity(0.3)),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text("Faculty App",
-                          style: TextStyle(color: AppColors.black, fontSize: 13)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
             const Spacer(flex: 1),
           ],
         ),

@@ -1,13 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../constants/colors.dart';
+import '../../services/api_service.dart';
 
 enum CellType { header, time, classCell, idle, breakCell }
 
-class WeeklyTimetableOverlay extends StatelessWidget {
+class WeeklyTimetableOverlay extends StatefulWidget {
   final VoidCallback onClose;
 
   const WeeklyTimetableOverlay({super.key, required this.onClose});
+
+  @override
+  State<WeeklyTimetableOverlay> createState() => _WeeklyTimetableOverlayState();
+}
+
+class _WeeklyTimetableOverlayState extends State<WeeklyTimetableOverlay> {
+  final ApiService _apiService = ApiService();
+  Map<String, dynamic> _timetable = {};
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTimetable();
+  }
+
+  Future<void> _fetchTimetable() async {
+    try {
+      final data = await _apiService.getTimetable();
+      if (mounted) {
+        setState(() {
+          _timetable = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _currentSessionLabel() {
+    final now = DateTime.now();
+    final session = now.month >= 7 ? 'Autumn' : 'Spring';
+    return '$session ${now.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +58,7 @@ class WeeklyTimetableOverlay extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // Header - Ultra compressed
+            // Header
             Container(
               decoration: const BoxDecoration(
                 color: AppColors.white,
@@ -28,10 +70,10 @@ class WeeklyTimetableOverlay extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         "Week Schedule",
                         style: TextStyle(
                           fontSize: 18,
@@ -40,10 +82,10 @@ class WeeklyTimetableOverlay extends StatelessWidget {
                           height: 1.4,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
-                        "Spring",
-                        style: TextStyle(
+                        _currentSessionLabel(),
+                        style: const TextStyle(
                           fontSize: 10,
                           color: AppColors.gray500,
                         ),
@@ -62,9 +104,9 @@ class WeeklyTimetableOverlay extends StatelessWidget {
                           border: Border.all(color: AppColors.gray200),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text(
-                          "3rd sem DSAI 2025",
-                          style: TextStyle(
+                        child: Text(
+                          _currentSessionLabel(),
+                          style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
                             color: AppColors.gray700,
@@ -73,7 +115,7 @@ class WeeklyTimetableOverlay extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(
-                        onTap: onClose,
+                        onTap: widget.onClose,
                         child: Container(
                           padding: const EdgeInsets.all(6),
                           decoration: const BoxDecoration(
@@ -93,19 +135,36 @@ class WeeklyTimetableOverlay extends StatelessWidget {
               ),
             ),
 
-            // Timetable Grid - Ultra compressed
+            // Timetable Grid
             Expanded(
-              child: Container(
-                color: AppColors.background,
-                padding: const EdgeInsets.all(4),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: _buildTimetableGrid(),
-                  ),
-                ),
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('Error: $_error',
+                                  style: const TextStyle(fontSize: 12)),
+                              const SizedBox(height: 8),
+                              TextButton(
+                                onPressed: _fetchTimetable,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Container(
+                          color: AppColors.background,
+                          padding: const EdgeInsets.all(4),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.vertical,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: _buildTimetableGrid(),
+                            ),
+                          ),
+                        ),
             ),
           ],
         ),
@@ -114,6 +173,7 @@ class WeeklyTimetableOverlay extends StatelessWidget {
   }
 
   Widget _buildTimetableGrid() {
+    // If no timetable data, show empty grid
     return Container(
       decoration: BoxDecoration(
         color: AppColors.gray300,
@@ -122,19 +182,16 @@ class WeeklyTimetableOverlay extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Header Row
           _buildHeaderRow(),
-
-          // Time Rows
-          _build9AMRow(),
-          _build10AMRow(),
-          _build11AMRow(),
-          _build12PMRow(),
-          _build1PMRow(), // Lunch
-          _build2PMRow(),
-          _build3PMRow(),
-          _build4PMRow(),
-          _build5PMRow(),
+          _buildTimeRow("9:00"),
+          _buildTimeRow("10:00"),
+          _buildTimeRow("11:00"),
+          _buildTimeRow("12:00"),
+          _buildLunchRow(),
+          _buildTimeRow("2:00"),
+          _buildTimeRow("3:00"),
+          _buildTimeRow("4:00"),
+          _buildTimeRow("5:00"),
         ],
       ),
     );
@@ -153,133 +210,46 @@ class WeeklyTimetableOverlay extends StatelessWidget {
     );
   }
 
-  Widget _build9AMRow() {
+  Widget _buildTimeRow(String time) {
+    String getClassFor(String day, String timeSlot) {
+      if (_timetable[day] == null) return "";
+      final classes = _timetable[day] as List<dynamic>;
+      final slotTime = timeSlot.split(':')[0].padLeft(2, '0');
+      for (var cls in classes) {
+        final classTime = cls['time']
+            .toString()
+            .split(' - ')[0]
+            .split(':')[0]
+            .padLeft(2, '0');
+        if (classTime == slotTime) {
+          return "${cls['courseName']}\n${cls['facultyName'] ?? ''}";
+        }
+      }
+      return "";
+    }
+
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildCell("9:00", CellType.time, width: 30, height: 48),
-        _buildCell("idle", CellType.idle, width: 60, height: 48),
-        _buildCell("Intro Robots", CellType.classCell,
-            width: 60, height: 96), // Spans 2 rows
-        _buildCell("Data Struct", CellType.classCell, width: 60, height: 48),
-        _buildCell("Data Struct", CellType.classCell, width: 60, height: 48),
-        _buildCell("Graph Theory", CellType.classCell,
-            width: 60, height: 96), // Spans 2 rows
+        _buildCell(time, CellType.time, width: 30, height: 48),
+        _buildCell(getClassFor("Monday", time), CellType.classCell,
+            width: 60, height: 48),
+        _buildCell(getClassFor("Tuesday", time), CellType.classCell,
+            width: 60, height: 48),
+        _buildCell(getClassFor("Wednesday", time), CellType.classCell,
+            width: 60, height: 48),
+        _buildCell(getClassFor("Thursday", time), CellType.classCell,
+            width: 60, height: 48),
+        _buildCell(getClassFor("Friday", time), CellType.classCell,
+            width: 60, height: 48),
       ],
     );
   }
 
-  Widget _build10AMRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildCell("10:00", CellType.time, width: 30, height: 48),
-        _buildCell("DBMS-1", CellType.classCell, width: 60, height: 48),
-        const SizedBox(width: 60), // Occupied by Robotics
-        _buildCell("DBMS-1", CellType.classCell, width: 60, height: 48),
-        _buildCell("AI Found.", CellType.classCell, width: 60, height: 48),
-        const SizedBox(width: 60), // Occupied by Graph Theory
-      ],
-    );
-  }
-
-  Widget _build11AMRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildCell("11:00", CellType.time, width: 30, height: 48),
-        _buildCell("Data Lab", CellType.classCell,
-            width: 60, height: 96), // Spans 2 rows
-        _buildCell("AI Found.", CellType.classCell,
-            width: 60, height: 96), // Spans 2 rows
-        _buildCell("AI Found.", CellType.classCell, width: 60, height: 48),
-        _buildCell("Intro Robots", CellType.classCell, width: 60, height: 48),
-        _buildCell("DBMS Lab", CellType.classCell,
-            width: 60, height: 96), // Spans 2 rows
-      ],
-    );
-  }
-
-  Widget _build12PMRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildCell("12:00", CellType.time, width: 30, height: 48),
-        const SizedBox(width: 60), // Occupied
-        const SizedBox(width: 60), // Occupied
-        _buildCell("OOAD", CellType.classCell, width: 60, height: 48),
-        _buildCell("Graph Theory", CellType.classCell, width: 60, height: 48),
-        const SizedBox(width: 60), // Occupied
-      ],
-    );
-  }
-
-  Widget _build1PMRow() {
+  Widget _buildLunchRow() {
     return Row(
       children: [
         _buildCell("1:00", CellType.time, width: 30, height: 48),
-        _buildCell("Lunch", CellType.breakCell,
-            width: 250, height: 48), // Spans 5 columns
-      ],
-    );
-  }
-
-  Widget _build2PMRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildCell("2:00", CellType.time, width: 30, height: 48),
-        _buildCell("Graph Theory", CellType.classCell, width: 60, height: 48),
-        _buildCell("idle", CellType.idle, width: 60, height: 48),
-        _buildCell("Intro Robots", CellType.classCell,
-            width: 60, height: 96), // Spans 2 rows
-        _buildCell("DBMS-1", CellType.classCell, width: 60, height: 48),
-        _buildCell("OOAD", CellType.classCell,
-            width: 60, height: 96), // Spans 2 rows
-      ],
-    );
-  }
-
-  Widget _build3PMRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildCell("3:00", CellType.time, width: 30, height: 48),
-        _buildCell("Intro Robots", CellType.classCell, width: 60, height: 48),
-        _buildCell("DBMS-1", CellType.classCell, width: 60, height: 48),
-        const SizedBox(width: 60), // Occupied
-        _buildCell("OOAD", CellType.classCell, width: 60, height: 48),
-        const SizedBox(width: 60), // Occupied
-      ],
-    );
-  }
-
-  Widget _build4PMRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildCell("4:00", CellType.time, width: 30, height: 48),
-        _buildCell("OOAD", CellType.classCell,
-            width: 60, height: 96), // Spans 2 rows
-        _buildCell("Graph Theory", CellType.classCell,
-            width: 60, height: 96), // Spans 2 rows
-        _buildCell("idle", CellType.idle,
-            width: 60, height: 96), // Spans 2 rows
-        _buildCell("DBMS-1", CellType.classCell, width: 50, height: 48),
-      ],
-    );
-  }
-
-  Widget _build5PMRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildCell("5:00", CellType.time, width: 25, height: 48),
-        const SizedBox(width: 50), // Occupied
-        const SizedBox(width: 50), // Occupied
-        const SizedBox(width: 50), // Occupied
-        const SizedBox(width: 50), // Occupied
-        _buildCell("idle", CellType.idle, width: 50, height: 48),
+        _buildCell("Lunch", CellType.breakCell, width: 300, height: 48),
       ],
     );
   }
@@ -327,16 +297,16 @@ class WeeklyTimetableOverlay extends StatelessWidget {
         );
         break;
       case CellType.classCell:
-        bgColor = AppColors.white;
+        bgColor = text.isNotEmpty ? AppColors.white : AppColors.gray50;
         textColor = AppColors.black;
         fontWeight = FontWeight.normal;
         fontSize = 8;
-        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 24);
+        padding = const EdgeInsets.symmetric(horizontal: 2, vertical: 8);
         textStyle = TextStyle(
           fontSize: fontSize,
           fontWeight: fontWeight,
           color: textColor,
-          height: 1.0,
+          height: 1.2,
         );
         break;
       case CellType.idle:
@@ -383,7 +353,7 @@ class WeeklyTimetableOverlay extends StatelessWidget {
         style: textStyle,
         textAlign: TextAlign.center,
         maxLines: 4,
-        overflow: TextOverflow.visible,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

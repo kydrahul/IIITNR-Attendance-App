@@ -29,11 +29,13 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
     '2nd Year',
     '3rd Year',
     '4th Year',
-    'M.Tech'
+    'M.Tech',
+    'Summer',
   ];
   final Set<String> _selectedYears = {};
   bool _showAllYears = true;
   String _activeYearFilter = 'All';
+  bool _showArchived = false;
 
   @override
   void initState() {
@@ -42,20 +44,7 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
   }
 
   Future<void> _fetchCourses() async {
-    // 1. Try to load cached data first for instant UI response
-    try {
-      final cachedCourses = await _apiService.listCourses(forceRefresh: false);
-      if (mounted && cachedCourses.isNotEmpty) {
-        setState(() {
-          _allCourses = cachedCourses;
-          _isLoading = false;
-        });
-      }
-    } catch (_) {
-      // Ignore cache errors
-    }
-
-    // 2. Fetch fresh data in the background
+    // Fetch fresh data from API (skip cache to avoid stale schema issues)
     try {
       final courses = await _apiService.listCourses(forceRefresh: true);
       if (mounted) {
@@ -65,10 +54,20 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
         });
       }
     } catch (e) {
+      // Fallback to cache on network error
+      try {
+        final cachedCourses = await _apiService.listCourses(forceRefresh: false);
+        if (mounted && cachedCourses.isNotEmpty) {
+          setState(() {
+            _allCourses = cachedCourses;
+            _isLoading = false;
+          });
+        }
+      } catch (_) {}
       if (mounted) {
         setState(() => _isLoading = false);
       }
-      debugPrint('FacultyCoursesTab: Background refresh error: $e');
+      debugPrint('FacultyCoursesTab: Error fetching courses: $e');
     }
   }
 
@@ -346,6 +345,40 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
                     _buildIconButton(
                         LucideIcons.filter, () => _showFilterMenu(context),
                         active: _selectedYears.isNotEmpty),
+                    const SizedBox(width: 8),
+                    PopupMenuButton<String>(
+                      icon: const Icon(LucideIcons.moreVertical, size: 18),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      onSelected: (value) {
+                        if (value == 'archived') {
+                          setState(() => _showArchived = !_showArchived);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'archived',
+                          child: Row(
+                            children: [
+                              Icon(
+                                _showArchived
+                                    ? LucideIcons.eye
+                                    : LucideIcons.archive,
+                                size: 16,
+                                color: const Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _showArchived
+                                    ? 'Show Active Classes'
+                                    : 'Archived Classes',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ],
@@ -406,12 +439,16 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
                                       .toLowerCase()
                                       .contains(_searchQuery.toLowerCase());
                               final matchesYear = _activeYearFilter == 'All' ||
+                                  (_activeYearFilter == 'Summer' &&
+                                      (course.session == 'Summer' ||
+                                          course.department == 'Summer Intern')) ||
                                   (_activeYearFilter == 'M.Tech' &&
                                       (course.degree == 'M.Tech' ||
                                           course.academicYear
                                               .toLowerCase()
                                               .contains('m.tech'))) ||
                                   (course.degree != 'M.Tech' &&
+                                      course.session != 'Summer' &&
                                       (_activeYearFilter.toLowerCase().contains(
                                               course.academicYear
                                                   .toLowerCase()
@@ -423,7 +460,7 @@ class _FacultyCoursesTabState extends State<FacultyCoursesTab> {
                                                   .toLowerCase()
                                                   .replaceAll(' year', '')
                                                   .trim())));
-                              return matchesSearch && matchesYear;
+                              return matchesSearch && matchesYear && ((course.isArchived) == _showArchived);
                             }).toList();
 
                             if (filteredCourses.isEmpty) {
@@ -497,6 +534,49 @@ class _CourseCard extends StatelessWidget {
     JoinCodeDialog.show(context, course.name, course.code, course.joinCode);
   }
 
+  void _archiveCourse(BuildContext context) async {
+    final action = course.isArchived ? 'unarchive' : 'archive';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${course.isArchived ? 'Unarchive' : 'Archive'} Class'),
+        content: Text(
+          'Are you sure you want to $action "${course.name}"?'
+          '${course.isArchived ? '\nIt will appear back in your active classes.' : '\nIt will be moved to archived classes.'}',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(course.isArchived ? 'Unarchive' : 'Archive')),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await FacultyApiService().archiveCourse(
+          course.id,
+          archive: !course.isArchived,
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Class ${course.isArchived ? 'unarchived' : 'archived'} successfully'),
+          ));
+        }
+        onRefresh();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -541,7 +621,9 @@ class _CourseCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${course.code}  |  ${course.degree ?? 'B.Tech'}  |  ${course.academicYear.toLowerCase().contains('year') ? course.academicYear : "${course.academicYear} Year"}  |  ${course.credits} Credits',
+                          course.session == 'Summer'
+                              ? 'Summer 2026'
+                              : '${course.code}  |  ${course.degree ?? 'B.Tech'}  |  ${course.academicYear.toLowerCase().contains('year') ? course.academicYear : "${course.academicYear} Year"}  |  ${course.credits} Credits',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.roboto(
@@ -568,6 +650,8 @@ class _CourseCard extends StatelessWidget {
                           pageBuilder: (context, _, __) =>
                               AddCourseDialog(editCourse: course),
                         ).then((_) => onRefresh());
+                      } else if (value == 'archive') {
+                        _archiveCourse(context);
                       }
                     },
                     itemBuilder: (context) => [
@@ -595,6 +679,27 @@ class _CourseCard extends StatelessWidget {
                           ],
                         ),
                       ),
+                      PopupMenuItem(
+                        value: 'archive',
+                        child: Row(
+                          children: [
+                            Icon(
+                              course.isArchived
+                                  ? LucideIcons.archiveRestore
+                                  : LucideIcons.archive,
+                              size: 16,
+                              color: FacultyColors.gray600,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              course.isArchived
+                                  ? 'Unarchive'
+                                  : 'Archive',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -614,10 +719,13 @@ class _CourseCard extends StatelessWidget {
                         height: 24, width: 1, color: FacultyColors.gray100),
                     Expanded(
                         child: _buildStat(
-                            "SEMESTER", _getOrdinal(course.semester ?? 'N/A'))),
+                            course.session == 'Summer' ? "TERM" : "SEMESTER",
+                            course.session == 'Summer' ? 'Summer' : _getOrdinal(course.semester ?? 'N/A'))),
                     Container(
                         height: 24, width: 1, color: FacultyColors.gray100),
-                    Expanded(child: _buildStat("BRANCH", course.department)),
+                    Expanded(child: _buildStat(
+                        course.session == 'Summer' ? "YEAR" : "BRANCH",
+                        course.session == 'Summer' ? '2026' : course.department)),
                   ],
                 ),
               ),

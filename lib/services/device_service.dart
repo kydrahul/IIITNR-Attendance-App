@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
@@ -34,7 +35,7 @@ class DeviceService {
         return 'ios_${iosInfo.identifierForVendor}';
       }
     } catch (e) {
-      print('Error generating device ID: $e');
+      debugPrint('Error generating device ID: $e');
     }
 
     // Fallback: generate random UUID
@@ -66,7 +67,7 @@ class DeviceService {
         };
       }
     } catch (e) {
-      print('Error getting device info: $e');
+      debugPrint('Error getting device info: $e');
     }
 
     return {'error': 'Unable to get device info'};

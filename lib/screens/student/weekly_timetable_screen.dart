@@ -98,7 +98,7 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -112,7 +112,7 @@ class _WeeklyTimetableScreenState extends State<WeeklyTimetableScreen> {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        "Spring / 3rd / DSAI / 2025",
+                        "${DateTime.now().month >= 7 ? 'Autumn' : 'Spring'} ${DateTime.now().year}",
                         style: TextStyle(
                           fontSize: 10,
                           color: AppColors.gray500,

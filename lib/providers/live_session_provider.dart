@@ -335,12 +335,12 @@ class LiveSessionProvider extends ChangeNotifier {
     final session = AttendanceSession.fromJson(response['session']);
 
     _sessionId = session.id;
-    _qrValue = session.qrData;
+    _qrValue = response['qrData'] ?? session.qrData;
     _qrActive = true;
     _sessionEnded = false;
     _sessionTimeRemaining = _qrDuration * 60;
     _qrRefreshCountdown = _autoRefreshInterval;
-    _qrVersion = session.qrVersion;
+    _qrVersion = response['qrVersion'] ?? session.qrVersion;
     notifyListeners();
 
     _startTimers();
@@ -363,7 +363,7 @@ class LiveSessionProvider extends ChangeNotifier {
 
     if (_autoRefresh) {
       _refreshTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (_qrRefreshCountdown <= 1) {
+        if (_qrRefreshCountdown <= 0) {
           _refreshQR();
         } else {
           _qrRefreshCountdown--;

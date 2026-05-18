@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
 
@@ -10,7 +11,7 @@ class BiometricService {
     try {
       isSupported = await auth.isDeviceSupported();
     } on PlatformException catch (e) {
-      print("Error checking device support: $e");
+      debugPrint("Error checking device support: $e");
     }
     return isSupported;
   }
@@ -21,7 +22,7 @@ class BiometricService {
     try {
       canCheckBiometrics = await auth.canCheckBiometrics;
     } on PlatformException catch (e) {
-      print("Error checking biometrics: $e");
+      debugPrint("Error checking biometrics: $e");
     }
     return canCheckBiometrics;
   }
@@ -39,14 +40,14 @@ class BiometricService {
         localizedReason: 'Please authenticate to access the app',
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: true,
+          biometricOnly: false,
         ),
       );
       if (authenticated) {
         lastAuthTime = DateTime.now();
       }
     } on PlatformException catch (e) {
-      print("Error authenticating: $e");
+      debugPrint("Error authenticating: $e");
       // If error (e.g. LockedOut), return false
     } finally {
       isAuthenticating = false; // Reset flag

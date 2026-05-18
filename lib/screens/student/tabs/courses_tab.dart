@@ -73,24 +73,30 @@ class _CoursesTabState extends State<CoursesTab> {
     setState(() => _isJoining = true);
 
     try {
-      await _apiService.joinCourse(joinCode);
+      final response = await _apiService.joinCourse(joinCode);
+      final status = response['status'] ?? 'approved';
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Successfully joined course!'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: Text(
+              status == 'pending'
+                  ? '⏳ Request sent! Waiting for faculty approval.'
+                  : '✅ Successfully joined course!',
+            ),
+            backgroundColor: status == 'pending' ? Colors.orange : Colors.green,
+            duration: const Duration(seconds: 4),
           ),
         );
         _joinCodeController.clear();
         setState(() => showJoinInput = false);
-        _loadCourses(); // Reload courses
+        _loadCourses(); // Reload courses to show pending card
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(e.toString().replaceAll('Exception: ', '')),
             backgroundColor: Colors.red,
           ),
         );
@@ -242,27 +248,90 @@ class _CoursesTabState extends State<CoursesTab> {
               ),
             )
           else
-            // Enrolled List
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("ENROLLED",
-                    style: AppTextStyles.label.copyWith(fontSize: 12)),
-                const SizedBox(height: 12),
-                ..._courses.map((course) => CourseCard(
-                      course: course,
-                      onClick: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                CourseDetailScreen(course: course),
+            // Split into enrolled and pending
+            Builder(builder: (context) {
+              final approved = _courses.where((c) => c.status != 'pending').toList();
+              final pending = _courses.where((c) => c.status == 'pending').toList();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (pending.isNotEmpty) ...[
+                    Text("AWAITING APPROVAL",
+                        style: AppTextStyles.label.copyWith(
+                            fontSize: 12, color: Colors.orange.shade700)),
+                    const SizedBox(height: 10),
+                    ...pending.map((course) => Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.orange.shade200),
                           ),
-                        );
-                      },
-                    )),
-              ],
-            ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade100,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(LucideIcons.clock,
+                                    size: 20, color: Colors.orange.shade700),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(course.name,
+                                        style: AppTextStyles.bodyMedium.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.gray800)),
+                                    const SizedBox(height: 4),
+                                    Text('Waiting for faculty approval',
+                                        style: AppTextStyles.bodySmall.copyWith(
+                                            color: Colors.orange.shade700)),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade100,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text('PENDING',
+                                    style: AppTextStyles.label.copyWith(
+                                        color: Colors.orange.shade800,
+                                        fontSize: 10)),
+                              ),
+                            ],
+                          ),
+                        )),
+                    const SizedBox(height: 8),
+                  ],
+                  if (approved.isNotEmpty) ...[
+                    Text("ENROLLED",
+                        style: AppTextStyles.label.copyWith(fontSize: 12)),
+                    const SizedBox(height: 12),
+                    ...approved.map((course) => CourseCard(
+                          course: course,
+                          onClick: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    CourseDetailScreen(course: course),
+                              ),
+                            );
+                          },
+                        )),
+                  ],
+                ],
+              );
+            }),
         ],
       ),
     );

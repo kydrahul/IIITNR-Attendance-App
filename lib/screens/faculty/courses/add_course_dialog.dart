@@ -28,6 +28,8 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
   String? _selectedSemester = '1';
   String? _selectedCredits = '4';
   String? _selectedSession = 'Autumn';
+  DateTime? _summerStartDate;
+  DateTime? _summerEndDate;
   String get _selectedAcademicYear {
     final now = DateTime.now();
     final year = now.month < 7 ? now.year - 1 : now.year;
@@ -76,7 +78,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
       _courseCodeController.text = c.code;
       _selectedDegree = c.degree ?? 'B.Tech';
       _selectedSemester = c.semester ?? '1';
-      _selectedCredits = c.credits?.toString() ?? '4';
+      _selectedCredits = c.credits.toString();
       _selectedSession = c.session ?? 'Autumn';
 
       _selectedBranches.clear();
@@ -168,20 +170,36 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
 
         if (branchSlots.isEmpty) continue;
 
-        final payload = {
-          'courseName': _courseNameController.text,
-          'courseCode': _courseCodeController.text,
-          'branch': branch,
-          'degree': _selectedDegree,
-          'year': _selectedCourseYear ?? '1st',
-          'academicYear': _selectedAcademicYear,
-          'semester': _selectedSemester ?? '1',
-          'credits': int.tryParse(_selectedCredits ?? '4') ?? 4,
-          'session': _selectedSession ?? 'Autumn',
-          'timetable': branchSlots,
-        };
+        final payload = _isSummerSession
+            ? {
+                'courseName': _courseNameController.text,
+                'courseCode': 'SUM-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+                'branch': branch,
+                'degree': 'Summer',
+                'year': 'N/A',
+                'academicYear': _selectedAcademicYear,
+                'semester': 'N/A',
+                'credits': 0,
+                'session': 'Summer',
+                'startDate': _summerStartDate?.toIso8601String(),
+                'endDate': _summerEndDate?.toIso8601String(),
+                'timetable': branchSlots,
+              }
+            : {
+                'courseName': _courseNameController.text,
+                'courseCode': _courseCodeController.text,
+                'branch': branch,
+                'degree': _selectedDegree,
+                'year': _selectedCourseYear ?? '1st',
+                'academicYear': _selectedAcademicYear,
+                'semester': _selectedSemester ?? '1',
+                'credits': int.tryParse(_selectedCredits ?? '4') ?? 4,
+                'session': _selectedSession ?? 'Autumn',
+                'timetable': branchSlots,
+              };
 
         final Map<String, dynamic> res;
+        debugPrint('Creating class with payload: $payload');
         if (widget.editCourse != null) {
           res = await _apiService.updateCourseSchedule(
             courseId: widget.editCourse!.id,
@@ -190,6 +208,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
         } else {
           res = await _apiService.createFullClass(payload);
         }
+        debugPrint('Create class response: $res');
 
         if (res['success'] == true) {
           newResults.add({
@@ -199,7 +218,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                     : widget.editCourse?.joinCode) ??
                 'N/A',
             'courseName': _courseNameController.text,
-            'courseCode': _courseCodeController.text,
+            'courseCode': payload['courseCode'] ?? _courseCodeController.text,
           });
           // If we are editing, we only update one course
           if (widget.editCourse != null) break;
@@ -397,6 +416,64 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
     );
   }
 
+  Widget _buildDatePickerField(String label, DateTime? date, VoidCallback onTap) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    final displayText = date != null
+        ? '${date.day.toString().padLeft(2, '0')} ${months[date.month - 1]} ${date.year}'
+        : 'Select';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label.toUpperCase(),
+            style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF94A3B8))),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today, size: 14, color: Color(0xFF64748B)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    displayText,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: date != null ? const Color(0xFF1E293B) : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool get _isSummerSession => _selectedSession == 'Summer';
+
+  // For summer: skip step 2 (1 → 3 → 4 → 5)
+  int _nextStep(int current) {
+    if (_isSummerSession && current == 1) return 3;
+    return current + 1;
+  }
+  int _prevStep(int current) {
+    if (_isSummerSession && current == 3) return 1;
+    return current - 1;
+  }
+
   Widget _buildStep1() {
     List<String> years = ['1st', '2nd'];
     if (_selectedDegree == 'B.Tech') {
@@ -426,74 +503,198 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
         _buildSectionHeader('COURSE INFORMATION', isFirst: true),
         _buildTextFieldPlain(_courseNameController, 'Course Name'),
         const SizedBox(height: 16),
-        _buildTextFieldPlain(_courseCodeController, 'Course Code'),
-        const SizedBox(height: 16),
-        _buildDropdownField(
-            'Degree',
-            _selectedDegree,
-            ['B.Tech', 'M.Tech'],
-            (val) => setState(() {
-                  _selectedDegree = val;
-                  // Handle year reset if M.Tech selected and currently on 3rd/4th year
-                  if (val == 'M.Tech' &&
-                      (_selectedCourseYear == '3rd' ||
-                          _selectedCourseYear == '4th')) {
-                    _selectedCourseYear = '1st';
-                    _selectedSemester = '1';
-                  }
-                })),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildDropdownField(
-                  'Year',
-                  _selectedCourseYear,
-                  years,
-                  (val) => setState(() {
-                        _selectedCourseYear = val;
-                        // Auto-select first semester of that year
-                        if (val == '1st')
-                          _selectedSemester = '1';
-                        else if (val == '2nd')
-                          _selectedSemester = '3';
-                        else if (val == '3rd')
-                          _selectedSemester = '5';
-                        else if (val == '4th') _selectedSemester = '7';
-                      })),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildDropdownField('Semester', _selectedSemester,
-                  semesters, (val) => setState(() => _selectedSemester = val)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildDropdownField(
-                  'Credits',
-                  _selectedCredits,
-                  ['1', '2', '3', '4'],
-                  (val) => setState(() => _selectedCredits = val)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildDropdownField(
-                  'Session',
-                  _selectedSession,
-                  ['Autumn', 'Spring'],
-                  (val) => setState(() => _selectedSession = val)),
-            ),
-          ],
-        ),
+        if (!_isSummerSession) ...[
+          _buildTextFieldPlain(_courseCodeController, 'Course Code'),
+          const SizedBox(height: 16),
+        ],
+
+        // Session selector (moved up so Summer can hide other fields)
+        if (_isSummerSession) ...[
+          _buildDropdownField(
+              'Session',
+              _selectedSession,
+              ['Autumn', 'Spring', 'Summer'],
+              (val) => setState(() {
+                    _selectedSession = val;
+                    if (val == 'Summer') {
+                      _selectedBranches.clear();
+                      _selectedBranches.add('Summer Intern');
+                    } else {
+                      _selectedBranches.remove('Summer Intern');
+                    }
+                  })),
+          const SizedBox(height: 20),
+          // Date range picker for summer courses
+          _buildSectionHeader('COURSE DURATION'),
+          Row(
+            children: [
+              Expanded(
+                child: _buildDatePickerField(
+                  'Start Date',
+                  _summerStartDate,
+                  () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _summerStartDate ?? DateTime.now(),
+                      firstDate: DateTime(2025),
+                      lastDate: DateTime(2027, 12, 31),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _summerStartDate = picked;
+                        if (_summerEndDate == null || _summerEndDate!.isBefore(picked)) {
+                          _summerEndDate = picked.add(const Duration(days: 30));
+                        }
+                      });
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDatePickerField(
+                  'End Date',
+                  _summerEndDate,
+                  () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _summerEndDate ?? DateTime.now().add(const Duration(days: 30)),
+                      firstDate: _summerStartDate ?? DateTime(2025),
+                      lastDate: DateTime(2027, 12, 31),
+                    );
+                    if (picked != null) {
+                      setState(() => _summerEndDate = picked);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ] else ...[
+          Row(
+            children: [
+              Expanded(
+                child: _buildDropdownField(
+                    'Credits',
+                    _selectedCredits,
+                    ['1', '2', '3', '4'],
+                    (val) => setState(() => _selectedCredits = val)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDropdownField(
+                    'Session',
+                    _selectedSession,
+                    ['Autumn', 'Spring', 'Summer'],
+                    (val) => setState(() {
+                          _selectedSession = val;
+                          if (val == 'Summer') {
+                            _selectedBranches.clear();
+                            _selectedBranches.add('Summer Intern');
+                          } else {
+                            _selectedBranches.remove('Summer Intern');
+                          }
+                        })),
+              ),
+            ],
+          ),
+        ],
+
+        // Hide Degree/Year/Semester for Summer session
+        if (!_isSummerSession) ...[
+          const SizedBox(height: 16),
+          _buildDropdownField(
+              'Degree',
+              _selectedDegree,
+              ['B.Tech', 'M.Tech'],
+              (val) => setState(() {
+                    _selectedDegree = val;
+                    if (val == 'M.Tech' &&
+                        (_selectedCourseYear == '3rd' ||
+                            _selectedCourseYear == '4th')) {
+                      _selectedCourseYear = '1st';
+                      _selectedSemester = '1';
+                    }
+                  })),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildDropdownField(
+                    'Year',
+                    _selectedCourseYear,
+                    years,
+                    (val) => setState(() {
+                          _selectedCourseYear = val;
+                          if (val == '1st')
+                            _selectedSemester = '1';
+                          else if (val == '2nd')
+                            _selectedSemester = '3';
+                          else if (val == '3rd')
+                            _selectedSemester = '5';
+                          else if (val == '4th') _selectedSemester = '7';
+                        })),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDropdownField('Semester', _selectedSemester,
+                    semesters, (val) => setState(() => _selectedSemester = val)),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
 
   Widget _buildStep2() {
+    // For summer session, branch is auto-set to 'Summer Intern'
+    if (_isSummerSession) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader('TARGET AUDIENCE', isFirst: true),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.wb_sunny, size: 24, color: Colors.amber.shade700),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Summer Intern Course',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'This course will be available for summer interns to join using the join code.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.amber.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -724,14 +925,22 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
   Widget _buildReviewSummary() {
     return Column(
       children: [
-        _buildSummaryRow(LucideIcons.book, 'Course',
-            '${_courseNameController.text} (${_courseCodeController.text})'),
-        _buildSummaryRow(LucideIcons.graduationCap, 'Branches',
-            '${_selectedBranches.join(', ')} - Year $_selectedCourseYear'),
-        _buildSummaryRow(LucideIcons.calendar, 'Term',
-            'Sem $_selectedSemester, $_selectedSession $_selectedAcademicYear'),
-        _buildSummaryRow(LucideIcons.clock, 'Slots',
-            '${_selectedSlots.length} Slots Selected'),
+        if (_isSummerSession) ...[
+          _buildSummaryRow(LucideIcons.book, 'Course',
+              _courseNameController.text),
+          _buildSummaryRow(LucideIcons.calendar, 'Term', 'Summer 2026'),
+          _buildSummaryRow(LucideIcons.clock, 'Slots',
+              '${_selectedSlots.length} Slots Selected'),
+        ] else ...[
+          _buildSummaryRow(LucideIcons.book, 'Course',
+              '${_courseNameController.text} (${_courseCodeController.text})'),
+          _buildSummaryRow(LucideIcons.graduationCap, 'Branches',
+              '${_selectedBranches.join(', ')} - Year $_selectedCourseYear'),
+          _buildSummaryRow(LucideIcons.calendar, 'Term',
+              'Sem $_selectedSemester, $_selectedSession $_selectedAcademicYear'),
+          _buildSummaryRow(LucideIcons.clock, 'Slots',
+              '${_selectedSlots.length} Slots Selected'),
+        ],
         const Divider(height: 32),
         const Text(
           'Total sessions per week',
@@ -945,7 +1154,11 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
             final time = _timeSlots[index];
 
             // 1. Check if booked in existing courses (from backend)
-            final bookedCourse = _existingCourses.cast<Course?>().firstWhere(
+            // For summer courses, only check against other summer courses
+            final coursesToCheck = _isSummerSession
+                ? _existingCourses.where((c) => c.session == 'Summer').toList()
+                : _existingCourses;
+            final bookedCourse = coursesToCheck.cast<Course?>().firstWhere(
                   (c) => c!.timetable
                       .any((t) => t.day == _selectedDay && t.time == time),
                   orElse: () => null,
@@ -1178,7 +1391,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                     icon: const Icon(LucideIcons.chevronLeft),
                     onPressed: _isCreating
                         ? null
-                        : () => setState(() => _currentStep--),
+                        : () => setState(() => _currentStep = _prevStep(_currentStep)),
                   )
                 else
                   const SizedBox(width: 48),
@@ -1189,15 +1402,30 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                       Text('Add New Class',
                           style: FacultyTextStyles.h2.copyWith(fontSize: 20)),
                       if (_currentStep < 5)
-                        Text(
-                          'STEP $_currentStep OF 4: ${_currentStep == 1 ? "INFO" : (_currentStep == 2 ? "BRANCHES" : (_currentStep == 3 ? "SLOTS" : "REVIEW"))}',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            letterSpacing: 1,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF94A3B8),
-                          ),
-                        ),
+                        Builder(builder: (context) {
+                          String stepLabel;
+                          int stepNum;
+                          int totalSteps;
+                          if (_isSummerSession) {
+                            totalSteps = 3;
+                            if (_currentStep == 1) { stepNum = 1; stepLabel = 'INFO'; }
+                            else if (_currentStep == 3) { stepNum = 2; stepLabel = 'SLOTS'; }
+                            else { stepNum = 3; stepLabel = 'REVIEW'; }
+                          } else {
+                            totalSteps = 4;
+                            stepNum = _currentStep;
+                            stepLabel = _currentStep == 1 ? 'INFO' : (_currentStep == 2 ? 'BRANCHES' : (_currentStep == 3 ? 'SLOTS' : 'REVIEW'));
+                          }
+                          return Text(
+                            'STEP $stepNum OF $totalSteps: $stepLabel',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              letterSpacing: 1,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          );
+                        }),
                     ],
                   ),
                 ),
@@ -1233,7 +1461,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                     child: OutlinedButton(
                       onPressed: _isCreating
                           ? null
-                          : () => setState(() => _currentStep--),
+                          : () => setState(() => _currentStep = _prevStep(_currentStep)),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(0, 56),
                         shape: RoundedRectangleBorder(
@@ -1254,12 +1482,19 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                         : () {
                             if (_currentStep < 4) {
                               if (_currentStep == 1) {
-                                if (_courseNameController.text.isEmpty ||
+                                if (_courseNameController.text.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Please enter a course name')));
+                                  return;
+                                }
+                                if (!_isSummerSession &&
                                     _courseCodeController.text.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                           content: Text(
-                                              'Please enter course details')));
+                                              'Please enter a course code')));
                                   return;
                                 }
                               } else if (_currentStep == 2) {
@@ -1279,7 +1514,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
                                   return;
                                 }
                               }
-                              setState(() => _currentStep++);
+                              setState(() => _currentStep = _nextStep(_currentStep));
                             } else if (_currentStep == 4) {
                               _handleSubmit();
                             } else {

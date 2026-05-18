@@ -40,7 +40,7 @@ class _SearchScreenState extends State<SearchScreen> {
         });
       }
     } catch (e) {
-      print('Error fetching courses: $e');
+      debugPrint('Error fetching courses: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;

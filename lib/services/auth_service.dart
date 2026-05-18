@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -36,7 +37,7 @@ class AuthService {
 
       return userCredential;
     } catch (e) {
-      print('Google Sign-In Error: $e');
+      debugPrint('Google Sign-In Error: $e');
       rethrow;
     }
   }
@@ -55,7 +56,7 @@ class AuthService {
       // Fallback to stored token
       return await _storage.read(key: 'auth_token');
     } catch (e) {
-      print('Get Token Error: $e');
+      debugPrint('Get Token Error: $e');
       return null;
     }
   }

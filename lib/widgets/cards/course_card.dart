@@ -66,7 +66,7 @@ class CourseCard extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                      child: _buildStat("CREDITS", course.credits.toString(),
+                      child: _buildStat("CREDITS", course.credits == 0 ? "N/A" : course.credits.toString(),
                           align: CrossAxisAlignment.center)),
                   Container(width: 1, height: 24, color: AppColors.gray100),
                   Expanded(

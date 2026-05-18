@@ -73,7 +73,7 @@ class _HomeTabState extends State<HomeTab> {
 
       _updateUI(freshTimetable, freshCoursesRaw);
     } catch (e) {
-      print('Error fetching data: $e');
+      debugPrint('Error fetching data: $e');
       if (mounted && _schedule.isEmpty) {
         setState(() => _isLoading = false);
       }

@@ -112,6 +112,7 @@ class Course {
   final String? semester;
   final String? session; // 'Spring', 'Autumn'
   final String? degree; // 'B.Tech', 'M.Tech'
+  final bool isArchived;
 
   Course({
     required this.id,
@@ -128,6 +129,7 @@ class Course {
     this.semester,
     this.session,
     this.degree,
+    this.isArchived = false,
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -149,6 +151,7 @@ class Course {
       semester: json['semester']?.toString(),
       session: json['session'],
       degree: json['degree'],
+      isArchived: json['isArchived'] == true,
     );
   }
 
@@ -177,6 +180,7 @@ class Course {
       'semester': semester,
       'session': session,
       'degree': degree,
+      'isArchived': isArchived,
     };
   }
 }

@@ -6,6 +6,7 @@ import 'config/firebase_options.dart';
 import 'constants/colors.dart';
 import 'screens/common/login_screen.dart';
 import 'screens/student/profile_setup_screen.dart';
+import 'screens/student/intern_profile_setup_screen.dart';
 import 'screens/student/qr_scanner_screen.dart';
 import 'screens/student/attendance_history_screen.dart';
 import 'screens/student/home_screen.dart';
@@ -80,7 +81,7 @@ class _StudentAppState extends State<StudentApp> with WidgetsBindingObserver {
         // Use a local helper to check role and navigate
         () async {
           final role = await authService.getUserRole();
-          if (role == 'student') {
+          if (role == 'student' || role == 'intern') {
             navigatorKey.currentState
                 ?.pushNamedAndRemoveUntil('/', (route) => false);
           }
@@ -117,6 +118,7 @@ class _StudentAppState extends State<StudentApp> with WidgetsBindingObserver {
           '/qr-scanner': (context) => const QRScannerScreen(),
           '/attendance-history': (context) => const AttendanceHistoryScreen(),
           '/home': (context) => const HomeScreen(),
+          '/intern-profile-setup': (context) => const InternProfileSetupScreen(),
           '/faculty-home': (context) => const FacultyMainScaffold(),
           '/faculty-profile-completion': (context) =>
               const FacultyProfileCompletionScreen(),
