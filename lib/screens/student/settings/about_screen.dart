@@ -27,6 +27,8 @@ class AboutScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 32),
+
+            // App Icon
             Container(
               padding: const EdgeInsets.all(24),
               decoration: const BoxDecoration(
@@ -39,19 +41,60 @@ class AboutScreen extends StatelessWidget {
             const SizedBox(height: 24),
             Text("IIITNR Attendance",
                 style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text("Version 1.0.0",
+            const SizedBox(height: 4),
+            Text("Version 1.0.1",
                 style: AppTextStyles.body.copyWith(color: AppColors.gray500)),
-            const SizedBox(height: 48),
+            const SizedBox(height: 32),
 
-            _buildInfoCard("Developers",
-                "Rahul Barma\nHimanshu Deshmukh\nAbhinav Bhagat",
-                LucideIcons.code),
+            // About the App
+            _buildSectionCard(
+              icon: LucideIcons.info,
+              title: 'About the App',
+              child: Text(
+                'IIITNR Attendance is a QR-code and geofence-based attendance '
+                'management system developed as a minor project at DSPM IIIT Naya Raipur. '
+                'It enables faculty to conduct live attendance sessions and allows students '
+                'to mark their presence securely via their smartphones.\n\n'
+                'The system uses one-time QR codes, GPS proximity verification, '
+                'and device fingerprinting to prevent proxy attendance, ensuring '
+                'accurate and tamper-resistant records for academic institutions.',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.gray600,
+                  height: 1.6,
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
-            _buildContactCard(),
-            const SizedBox(height: 48),
 
-            // Personal project disclaimer
+            // Merged Developers + Contact card
+            _buildSectionCard(
+              icon: LucideIcons.users,
+              title: 'Developers',
+              child: Column(
+                children: [
+                  _buildDeveloper(
+                    name: 'Rahul Barma',
+                    dept: 'Dept. of Data Science and AI',
+                    email: 'rahul24102@iiitnr.edu.in',
+                  ),
+                  const Divider(height: 24, color: AppColors.gray100),
+                  _buildDeveloper(
+                    name: 'Himanshu Deshmukh',
+                    dept: 'Dept. of Computer Science',
+                    email: 'himanshu24100@iiitnr.edu.in',
+                  ),
+                  const Divider(height: 24, color: AppColors.gray100),
+                  _buildDeveloper(
+                    name: 'Abhinav Bhagat',
+                    dept: 'Dept. of Computer Science',
+                    email: 'abhinav24100@iiitnr.edu.in',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Disclaimer
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -67,9 +110,10 @@ class AboutScreen extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      '⚠️ This app is an independent academic project built by Rahul Barma '
-                      'as part of a minor project at IIITNR. It is NOT an official product '
-                      'of DSPM IIIT Naya Raipur and is not formally endorsed or operated by the institution.',
+                      'This app is an independent academic project built as part of a '
+                      'minor project at IIITNR. It is NOT an official product of '
+                      'DSPM IIIT Naya Raipur and is not formally endorsed or operated '
+                      'by the institution.',
                       style: AppTextStyles.bodySmall.copyWith(
                         color: const Color(0xFF7B4700),
                         height: 1.5,
@@ -82,7 +126,7 @@ class AboutScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             Text(
-              "© 2025 Rahul Barma. All rights reserved.",
+              "© 2026 Rahul Barma, Himanshu Deshmukh, Abhinav Bhagat.\nAll rights reserved.",
               style: AppTextStyles.label.copyWith(color: AppColors.gray400),
               textAlign: TextAlign.center,
             ),
@@ -93,90 +137,76 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoCard(String title, String value, IconData icon) {
+  Widget _buildSectionCard({
+    required IconData icon,
+    required String title,
+    required Widget child,
+  }) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.gray100),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: AppColors.blue600),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppTextStyles.label),
-                const SizedBox(height: 2),
-                Text(value,
-                    style: AppTextStyles.bodyMedium
-                        .copyWith(fontWeight: FontWeight.bold)),
-              ],
-            ),
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppColors.blue600),
+              const SizedBox(width: 8),
+              Text(title, style: AppTextStyles.label),
+            ],
           ),
+          const SizedBox(height: 12),
+          child,
         ],
       ),
     );
   }
 
-  Widget _buildContactCard() {
-
-    const contacts = [
-      {'name': 'Rahul Barma', 'email': 'rahul24102@iiitnr.edu.in'},
-      {'name': 'Himanshu Deshmukh', 'email': 'himanshu24100@iiitnr.edu.in'},
-      {'name': 'Abhinav Bhagat', 'email': 'abhinav24100@iiitnr.edu.in'},
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.gray100),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(LucideIcons.mail, size: 20, color: AppColors.blue600),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Contact', style: AppTextStyles.label),
-                const SizedBox(height: 8),
-                ...contacts.map((c) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            c['name']!,
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: AppColors.gray500,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 1),
-                          SelectableText(
-                            c['email']!,
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.blue600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )),
-              ],
-            ),
+  Widget _buildDeveloper({
+    required String name,
+    required String dept,
+    required String email,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.blue50,
+            borderRadius: BorderRadius.circular(8),
           ),
-        ],
-      ),
+          child: const Icon(LucideIcons.user, size: 16, color: AppColors.blue600),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name,
+                  style: AppTextStyles.bodyMedium
+                      .copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 2),
+              Text(dept,
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: AppColors.gray500)),
+              const SizedBox(height: 4),
+              SelectableText(
+                email,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.blue600,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
