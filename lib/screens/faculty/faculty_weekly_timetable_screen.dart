@@ -341,8 +341,12 @@ class _FacultyWeeklyTimetableScreenState
               final abbr = _abbreviate(course.name);
               final sem = course.semester ?? '';
               final branch = course.department;
+              // Capitalise type: 'theory' → 'Theory', 'lab' → 'Lab'
+              final typeLabel = slot.type.isNotEmpty
+                  ? slot.type[0].toUpperCase() + slot.type.substring(1)
+                  : 'Theory';
               return {
-                "text": "$abbr\nSem $sem $branch\n${slot.room ?? ''}",
+                "text": "$abbr\nSem $sem $branch\n$typeLabel",
                 "code": course.code,
               };
             }
