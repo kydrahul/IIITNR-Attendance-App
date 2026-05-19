@@ -250,7 +250,8 @@ class _CoursesTabState extends State<CoursesTab> {
           else
             // Split into enrolled and pending
             Builder(builder: (context) {
-              final approved = _courses.where((c) => c.status != 'pending').toList();
+              final approved = _courses.where((c) => c.status != 'pending').toList()
+                ..sort((a, b) => b.credits.compareTo(a.credits));
               final pending = _courses.where((c) => c.status == 'pending').toList();
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
