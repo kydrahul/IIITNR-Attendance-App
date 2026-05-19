@@ -35,17 +35,25 @@ class CourseCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(course.name, style: AppTextStyles.h4),
-                    const SizedBox(height: 2),
-                    Text(course.faculty,
-                        style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.gray500,
-                            fontWeight: FontWeight.w500)),
-                  ],
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(course.name,
+                          style: AppTextStyles.h4,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1),
+                      const SizedBox(height: 2),
+                      Text(course.faculty,
+                          style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.gray500,
+                              fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   "${course.attendance}%",
                   style: AppTextStyles.h2.copyWith(

@@ -111,7 +111,13 @@ class ClassItemCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(subject, style: AppTextStyles.h4),
+                        Flexible(
+                          child: Text(subject,
+                              style: AppTextStyles.h4,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1),
+                        ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
@@ -119,7 +125,7 @@ class ClassItemCard extends StatelessWidget {
                             color: _getStatusBg(status),
                             borderRadius: BorderRadius.circular(100),
                             border: Border.all(
-                                color: _getStatusBg(status).withOpacity(0.5)), // slightly darker border
+                                color: _getStatusBg(status).withOpacity(0.5)),
                           ),
                           child: Text(
                             status,
@@ -136,7 +142,9 @@ class ClassItemCard extends StatelessWidget {
                     Text(instructor,
                         style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.gray500,
-                            fontWeight: FontWeight.w500)),
+                            fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1),
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.only(top: 12),

@@ -112,17 +112,46 @@ class _SettingsTabState extends State<SettingsTab> {
                   Text(
                     _profileData?['email'] ??
                         _authService.currentUser?.email ??
-                        'student@example.com',
+                        'Email unavailable',
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.gray500),
                   ),
                   const SizedBox(height: 24),
                   const Divider(color: AppColors.gray50, thickness: 1),
                   const SizedBox(height: 16),
-                  _buildStatRow(
-                      'Roll No', _profileData?['rollNo']?.toString() ?? 'N/A'),
-                  _buildStatRow(
-                      'Department', _profileData?['department'] ?? 'N/A'),
+                  if (_profileData?['userType'] == 'intern') ...[
+                    _buildStatRow('College', _profileData?['college'] ?? 'N/A'),
+                    _buildStatRow(
+                        'Assigned Faculty',
+                        () {
+                          final raw = _profileData?['assignedFaculty'] as String?;
+                          if (raw == null || raw.trim().isEmpty) return 'N/A';
+                          final parts = raw.trim().split(RegExp(r'\s+'));
+                          // Take first two words (first + last name only)
+                          return parts.take(2).join(' ');
+                        }()),
+                    _buildStatRow(
+                        'Start',
+                        _profileData?['internshipStart'] != null
+                            ? _profileData!['internshipStart']
+                                .toString()
+                                .split('T')
+                                .first
+                            : 'N/A'),
+                    _buildStatRow(
+                        'End',
+                        _profileData?['internshipEnd'] != null
+                            ? _profileData!['internshipEnd']
+                                .toString()
+                                .split('T')
+                                .first
+                            : 'N/A'),
+                  ] else ...[
+                    _buildStatRow('Roll No',
+                        _profileData?['rollNo']?.toString() ?? 'N/A'),
+                    _buildStatRow(
+                        'Dept', _profileData?['department'] ?? 'N/A'),
+                  ],
                 ],
               ),
             ),
@@ -226,7 +255,7 @@ class _SettingsTabState extends State<SettingsTab> {
           ),
           const SizedBox(height: 32),
           Center(
-              child: Text("Version 1.0.0",
+              child: Text("Version 1.0.1",
                   style: AppTextStyles.bodySmall
                       .copyWith(color: AppColors.gray400))),
         ],
@@ -287,13 +316,22 @@ class _SettingsTabState extends State<SettingsTab> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(label,
               style:
                   AppTextStyles.bodyMedium.copyWith(color: AppColors.gray500)),
-          Text(value,
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
               style: AppTextStyles.bodyMedium
-                  .copyWith(fontWeight: FontWeight.w600)),
+                  .copyWith(fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              maxLines: 1,
+            ),
+          ),
         ],
       ),
     );
