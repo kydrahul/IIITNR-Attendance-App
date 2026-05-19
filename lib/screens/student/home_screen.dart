@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../constants/colors.dart';
 import '../../widgets/common/custom_header.dart';
 import '../../widgets/common/profile_popup.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/biometric_service.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/courses_tab.dart';
 import 'tabs/settings_tab.dart';
@@ -16,12 +18,14 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool _showProfilePopup = false;
+  bool _isAuthenticated = false; // blocks UI until biometric passes
   Map<String, dynamic>? _profileData;
   final ApiService _apiService = ApiService();
   final AuthService _authService = AuthService();
+  final BiometricService _biometricService = BiometricService();
 
   final List<Widget> _tabs = [
     const HomeTab(),
@@ -32,7 +36,85 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchProfile();
+    WidgetsBinding.instance.addObserver(this);
+    _runBiometricGate();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _isAuthenticated) {
+      // Re-gate on resume only if we previously passed auth
+      if (BiometricService.isAuthenticating) return;
+      if (BiometricService.lastAuthTime != null) {
+        final diff = DateTime.now().difference(BiometricService.lastAuthTime!);
+        if (diff.inSeconds < 5) return; // grace period
+      }
+      setState(() => _isAuthenticated = false);
+      _runBiometricGate();
+    }
+  }
+
+  Future<void> _runBiometricGate() async {
+    final canCheck = await _biometricService.checkBiometrics();
+    if (!canCheck) {
+      // No biometric hardware enrolled — skip gate
+      if (mounted) setState(() => _isAuthenticated = true);
+      _fetchProfile();
+      return;
+    }
+
+    // bool? — true: pass, false: user denied (show dialog), null: hw error (skip)
+    final result = await _biometricService.authenticate();
+    if (!mounted) return;
+
+    if (result == true) {
+      setState(() => _isAuthenticated = true);
+      _fetchProfile();
+    } else if (result == null) {
+      // Hardware not available / not enrolled — skip gate silently
+      setState(() => _isAuthenticated = true);
+      _fetchProfile();
+    } else {
+      // result == false: user cancelled or failed
+      _showAuthFailedDialog();
+    }
+  }
+
+  void _showAuthFailedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Authentication Required'),
+        content: const Text('Please verify your identity to continue.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _runBiometricGate();
+            },
+            child: const Text('Retry'),
+          ),
+          TextButton(
+            onPressed: () {
+              _authService.signOut();
+              Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+            },
+            child: const Text('Logout'),
+          ),
+          TextButton(
+            onPressed: () => SystemNavigator.pop(),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _fetchProfile() async {
@@ -58,6 +140,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Show biometric lock screen until authenticated
+    if (!_isAuthenticated) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.fingerprint, size: 72, color: AppColors.blue600),
+              SizedBox(height: 16),
+              Text(
+                'Verifying identity...',
+                style: TextStyle(color: AppColors.gray600, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(

@@ -31,27 +31,36 @@ class BiometricService {
   static bool isAuthenticating = false;
   static DateTime? lastAuthTime;
 
-  // Authenticate user
-  Future<bool> authenticate() async {
-    bool authenticated = false;
+  /// Authenticate user.
+  /// Returns:
+  ///   true  — authenticated successfully
+  ///   false — user cancelled / failed (show retry dialog)
+  ///   null  — hardware unavailable / not enrolled (skip gate silently)
+  Future<bool?> authenticate() async {
     try {
-      isAuthenticating = true; // Set flag
-      authenticated = await auth.authenticate(
+      isAuthenticating = true;
+      final result = await auth.authenticate(
         localizedReason: 'Please authenticate to access the app',
         options: const AuthenticationOptions(
           stickyAuth: true,
           biometricOnly: false,
         ),
       );
-      if (authenticated) {
-        lastAuthTime = DateTime.now();
-      }
+      if (result) lastAuthTime = DateTime.now();
+      return result;
     } on PlatformException catch (e) {
       debugPrint("Error authenticating: $e");
-      // If error (e.g. LockedOut), return false
+      // NotAvailable / NotEnrolled / PasscodeNotSet — skip gate
+      final skipCodes = [
+        'NotAvailable',
+        'NotEnrolled',
+        'PasscodeNotSet',
+        'otherOperatingSystem',
+      ];
+      if (skipCodes.any((c) => e.code.contains(c))) return null;
+      return false; // other errors: show retry
     } finally {
-      isAuthenticating = false; // Reset flag
+      isAuthenticating = false;
     }
-    return authenticated;
   }
 }

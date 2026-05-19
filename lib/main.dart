@@ -12,7 +12,6 @@ import 'screens/student/attendance_history_screen.dart';
 import 'screens/student/home_screen.dart';
 import 'screens/common/not_found_screen.dart';
 import 'services/auth_service.dart';
-import 'services/biometric_service.dart';
 import 'screens/common/splash_screen.dart';
 import 'screens/faculty/faculty_main_scaffold.dart';
 import 'screens/faculty/profile/profile_completion_screen.dart';
@@ -47,49 +46,7 @@ class StudentApp extends StatefulWidget {
   State<StudentApp> createState() => _StudentAppState();
 }
 
-class _StudentAppState extends State<StudentApp> with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      // Ignore if we are currently authenticating (the biometric prompt caused the pause)
-      if (BiometricService.isAuthenticating) return;
-
-      // Grace Period: If we JUST authenticated (e.g. < 5 seconds ago),
-      // ignore this resume event (it's likely from the biometric dialog closing)
-      if (BiometricService.lastAuthTime != null) {
-        final diff = DateTime.now().difference(BiometricService.lastAuthTime!);
-        if (diff.inSeconds < 5) {
-          return;
-        }
-      }
-
-      // App came to foreground - verify auth again
-      final authService = AuthService();
-      if (authService.currentUser != null) {
-        // Use a local helper to check role and navigate
-        () async {
-          final role = await authService.getUserRole();
-          if (role == 'student' || role == 'intern') {
-            navigatorKey.currentState
-                ?.pushNamedAndRemoveUntil('/', (route) => false);
-          }
-        }();
-      }
-    }
-  }
-
+class _StudentAppState extends State<StudentApp> {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(

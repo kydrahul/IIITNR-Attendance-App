@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import '../../constants/colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
-import '../../services/biometric_service.dart';
-import 'package:flutter/services.dart';
+import '../student/settings/terms_screen.dart';
+import '../student/settings/privacy_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -38,38 +39,21 @@ class _SplashScreenState extends State<SplashScreen> {
     // User is authenticated, check if profile exists
     try {
       final role = await _authService.getUserRole();
-      
+
       if (role == 'faculty') {
         // Skip profile check/biometrics for faculty auto-login
         if (mounted) Navigator.pushReplacementNamed(context, '/faculty-home');
         return;
       }
 
-      // For both students and interns, check profile and biometrics
+      // For both students and interns, verify profile exists then go to home.
+      // Biometric gate is handled inside HomeScreen after login.
 
       // Pass true to bypass cache and verify real DB existence
       await _apiService.getProfile(checkProfileExists: true);
 
-      // Student Profile exists, now check Biometrics
-      if (mounted) {
-        final biometricService = BiometricService();
-        final canCheck = await biometricService.checkBiometrics();
-
-        if (canCheck) {
-          final authenticated = await biometricService.authenticate();
-          if (authenticated) {
-            if (mounted) Navigator.pushReplacementNamed(context, '/home');
-          } else {
-            // Biometric failed
-            if (mounted) {
-              _showAuthFailedDialog();
-            }
-          }
-        } else {
-          // No hardware support, proceed to home safely
-          if (mounted) Navigator.pushReplacementNamed(context, '/home');
-        }
-      }
+      // Profile exists — navigate to home (biometric will be triggered there)
+      if (mounted) Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
       debugPrint('Profile check failed: $e');
 
@@ -115,60 +99,136 @@ class _SplashScreenState extends State<SplashScreen> {
     }
   }
 
-  void _showAuthFailedDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Authentication Required'),
-        content: const Text('Please authenticate to access the app.'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _checkAuthAndNavigate(); // Retry sequence
-            },
-            child: const Text('Retry'),
-          ),
-          TextButton(
-            onPressed: () => SystemNavigator.pop(), // Exit app
-            child: const Text('Exit'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Logo
-            Image.asset(
-              'assets/logo.png',
-              width: 150,
-              height: 150,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.school,
-                    size: 100, color: AppColors.blue600);
-              },
-            ),
-            const SizedBox(height: 24),
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            const Text(
-              'Verifying Profile...',
-              style: TextStyle(
-                color: AppColors.gray600,
-                fontSize: 16,
+      body: Column(
+        children: [
+          // Main centered content
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Logo
+                  Image.asset(
+                    'assets/logo.png',
+                    width: 150,
+                    height: 150,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(Icons.school,
+                          size: 100, color: AppColors.blue600);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'DSPM IIITNR',
+                    style: TextStyle(
+                      color: AppColors.blue600,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Attendance System',
+                    style: TextStyle(
+                      color: AppColors.gray500,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  const SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: AppColors.blue600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Verifying Profile...',
+                    style: TextStyle(
+                      color: AppColors.gray600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+
+          // Footer with clickable Terms & Privacy
+          Padding(
+            padding: const EdgeInsets.only(bottom: 32, left: 24, right: 24),
+            child: Column(
+              children: [
+                const Divider(color: AppColors.gray100),
+                const SizedBox(height: 12),
+                RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    style: const TextStyle(
+                      color: AppColors.gray400,
+                      fontSize: 12,
+                    ),
+                    children: [
+                      const TextSpan(text: 'By using this app, you agree to our '),
+                      TextSpan(
+                        text: 'Terms of Service',
+                        style: const TextStyle(
+                          color: AppColors.blue600,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                          fontSize: 12,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const TermsAndConditionsScreen(),
+                              ),
+                            );
+                          },
+                      ),
+                      const TextSpan(text: ' & '),
+                      TextSpan(
+                        text: 'Privacy Policy',
+                        style: const TextStyle(
+                          color: AppColors.blue600,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                          fontSize: 12,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const PrivacyPolicyScreen(),
+                              ),
+                            );
+                          },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  '© 2026 DSPM IIIT Naya Raipur',
+                  style: TextStyle(
+                    color: AppColors.gray300,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

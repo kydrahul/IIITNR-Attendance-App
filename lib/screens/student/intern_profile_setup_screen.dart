@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import '../../constants/colors.dart';
 import '../../constants/text_styles.dart';
 import '../../services/api_service.dart';
-import '../../services/biometric_service.dart';
 
 class InternProfileSetupScreen extends StatefulWidget {
   const InternProfileSetupScreen({super.key});
@@ -212,7 +211,7 @@ class _InternProfileSetupScreenState extends State<InternProfileSetupScreen> {
       );
 
       if (mounted) {
-        await _handleBiometricAndRoute('/home');
+        Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (e) {
       if (mounted) {
@@ -228,29 +227,6 @@ class _InternProfileSetupScreenState extends State<InternProfileSetupScreen> {
     }
   }
 
-  Future<void> _handleBiometricAndRoute(String targetRoute) async {
-    final biometricService = BiometricService();
-    final canCheck = await biometricService.checkBiometrics();
-
-    if (canCheck) {
-      final authenticated = await biometricService.authenticate();
-      if (!authenticated) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Biometric authentication failed or cancelled.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-    }
-
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, targetRoute);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {

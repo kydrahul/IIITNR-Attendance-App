@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import '../../constants/colors.dart';
 import '../../constants/text_styles.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
 import '../../services/faculty/faculty_api_service.dart';
-import '../../services/biometric_service.dart';
+import '../student/settings/terms_screen.dart';
+import '../student/settings/privacy_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,26 +24,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool get _isLoading => _isStudentLoading || _isFacultyLoading || _isInternLoading;
   String? _errorMessage;
 
-  Future<void> _handleBiometricAndRoute(String targetRoute) async {
-    final biometricService = BiometricService();
-    final canCheck = await biometricService.checkBiometrics();
-
-    if (canCheck) {
-      final authenticated = await biometricService.authenticate();
-      if (!authenticated) {
-        setState(() {
-          _errorMessage = 'Biometric authentication failed. Please try again.';
-          _isStudentLoading = false;
-        });
-        await _authService.signOut();
-        return;
-      }
-    }
-
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, targetRoute);
-    }
-  }
 
   Future<void> _handleGoogleSignIn() async {
     setState(() {
@@ -77,8 +59,8 @@ class _LoginScreenState extends State<LoginScreen> {
         await apiService.getProfile(checkProfileExists: true);
 
         await _authService.setUserRole('student');
-        // Profile exists, navigate to home via biometric check
-        await _handleBiometricAndRoute('/home');
+        // Profile exists — route to home (HomeScreen will trigger biometric)
+        if (mounted) Navigator.pushReplacementNamed(context, '/home');
       } catch (e) {
         if (e.toString().contains('Profile not found')) {
           await _authService.setUserRole('student');
@@ -127,8 +109,8 @@ class _LoginScreenState extends State<LoginScreen> {
         await apiService.getProfile(checkProfileExists: true);
 
         await _authService.setUserRole('intern');
-        // Profile exists, navigate to home via biometric check
-        await _handleBiometricAndRoute('/home');
+        // Profile exists — route to home (HomeScreen will trigger biometric)
+        if (mounted) Navigator.pushReplacementNamed(context, '/home');
       } catch (e) {
         if (e.toString().contains('Profile not found')) {
           await _authService.setUserRole('intern');
@@ -443,12 +425,51 @@ class _LoginScreenState extends State<LoginScreen> {
 
             const SizedBox(height: 16),
 
-            // Disclaimer
-            Text(
-              'By logging in, you agree to the Terms of Service and '
-              'Privacy Policy of your institution.',
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.gray400),
+            // Disclaimer — clickable links
+            RichText(
               textAlign: TextAlign.center,
+              text: TextSpan(
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.gray400),
+                children: [
+                  const TextSpan(text: 'By logging in, you agree to our '),
+                  TextSpan(
+                    text: 'Terms of Service',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.blue600,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TermsAndConditionsScreen(),
+                          ),
+                        );
+                      },
+                  ),
+                  const TextSpan(text: ' and '),
+                  TextSpan(
+                    text: 'Privacy Policy',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.blue600,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PrivacyPolicyScreen(),
+                          ),
+                        );
+                      },
+                  ),
+                  const TextSpan(text: ' of your institution.'),
+                ],
+              ),
             ),
             const SizedBox(height: 32),
             const Spacer(flex: 1),

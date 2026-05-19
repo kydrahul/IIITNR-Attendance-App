@@ -29,7 +29,7 @@ class AboutScreen extends StatelessWidget {
             const SizedBox(height: 32),
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppColors.blue50,
                 shape: BoxShape.circle,
               ),
@@ -43,20 +43,51 @@ class AboutScreen extends StatelessWidget {
             Text("Version 1.0.0",
                 style: AppTextStyles.body.copyWith(color: AppColors.gray500)),
             const SizedBox(height: 48),
-            _buildInfoCard(
-                "Developed By",
+
+            _buildInfoCard("Developers",
                 "Rahul Barma\nHimanshu Deshmukh\nAbhinav Bhagat",
                 LucideIcons.code),
             const SizedBox(height: 16),
-            _buildInfoCard("Support", "support@iiitnr.ac.in", LucideIcons.mail),
-            const SizedBox(height: 16),
-            _buildInfoCard("Website", "www.iiitnr.ac.in", LucideIcons.globe),
+            _buildInfoCard(
+                "Contact", "rahul24102@iiitnr.edu.in", LucideIcons.mail),
             const SizedBox(height: 48),
+
+            // Personal project disclaimer
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8E1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFFE082)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(LucideIcons.alertTriangle,
+                      size: 18, color: Color(0xFFF57F17)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '⚠️ This app is an independent academic project built by Rahul Barma '
+                      'as part of a minor project at IIITNR. It is NOT an official product '
+                      'of DSPM IIIT Naya Raipur and is not formally endorsed or operated by the institution.',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: const Color(0xFF7B4700),
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
             Text(
-              "© 2025 IIIT Naya Raipur. All rights reserved.",
+              "© 2025 Rahul Barma. All rights reserved.",
               style: AppTextStyles.label.copyWith(color: AppColors.gray400),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 32),
           ],
         ),
       ),

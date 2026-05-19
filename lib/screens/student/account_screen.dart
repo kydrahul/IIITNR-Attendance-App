@@ -168,12 +168,42 @@ class _AccountScreenState extends State<AccountScreen> {
                                 style: AppTextStyles.h1
                                     .copyWith(fontWeight: FontWeight.bold),
                               ),
-                              Text(
-                                _profileData?['department'] ?? 'N/A',
-                                style: AppTextStyles.bodyMedium.copyWith(
-                                    color: AppColors.gray500,
-                                    fontWeight: FontWeight.w500),
-                              ),
+                              const SizedBox(height: 4),
+                              if (_isInternProfile())
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.shade50,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border:
+                                        Border.all(color: Colors.amber.shade200),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.wb_sunny,
+                                          size: 14,
+                                          color: Colors.amber.shade700),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Summer Intern',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.amber.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else
+                                Text(
+                                  _profileData?['department'] ?? 'N/A',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                      color: AppColors.gray500,
+                                      fontWeight: FontWeight.w500),
+                                ),
                             ],
                           ),
 
@@ -190,34 +220,72 @@ class _AccountScreenState extends State<AccountScreen> {
                                 border: Border.all(color: AppColors.gray100),
                               ),
                               child: Column(
-                                children: [
-                                  _buildDetailRow(
-                                      "Roll Number",
-                                      _profileData?['rollNo']?.toString() ??
-                                          _profileData?['rollNumber']
-                                              ?.toString() ??
-                                          'N/A'),
-                                  _buildDivider(),
-                                  _buildDetailRow(
-                                      "Department",
-                                      _profileData?['department'] ??
-                                          _profileData?['branch'] ??
-                                          'N/A'),
-                                  _buildDivider(),
-                                  _buildDetailRow(
-                                      "Passing Year",
-                                      _profileData?['passingYear']
-                                              ?.toString() ??
-                                          _profileData?['passingOutYear']
-                                              ?.toString() ??
-                                          'N/A'),
-                                  _buildDivider(),
-                                  _buildDetailRow(
-                                      "Email",
-                                      _authService.currentUser?.email ??
-                                          _profileData?['email'] ??
-                                          'N/A'),
-                                ],
+                                children: _isInternProfile()
+                                    ? [
+                                        _buildDetailRow(
+                                          'College / Institution',
+                                          _profileData?['college'] ?? 'N/A',
+                                        ),
+                                        _buildDivider(),
+                                        _buildDetailRow(
+                                          'Assigned Faculty',
+                                          (_profileData?['assignedFaculty']
+                                                      as String? ??
+                                                  'Not assigned')
+                                              .split(' — ')
+                                              .first,
+                                        ),
+                                        _buildDivider(),
+                                        _buildDetailRow(
+                                          'Internship Start',
+                                          _formatIsoDate(
+                                              _profileData?['internshipStart']
+                                                  as String?),
+                                        ),
+                                        _buildDivider(),
+                                        _buildDetailRow(
+                                          'Internship End',
+                                          _formatIsoDate(
+                                              _profileData?['internshipEnd']
+                                                  as String?),
+                                        ),
+                                        _buildDivider(),
+                                        _buildDetailRow(
+                                          'Email',
+                                          _authService.currentUser?.email ??
+                                              _profileData?['email'] ??
+                                              'N/A',
+                                        ),
+                                      ]
+                                    : [
+                                        _buildDetailRow(
+                                            'Roll Number',
+                                            _profileData?['rollNo']
+                                                    ?.toString() ??
+                                                _profileData?['rollNumber']
+                                                    ?.toString() ??
+                                                'N/A'),
+                                        _buildDivider(),
+                                        _buildDetailRow(
+                                            'Department',
+                                            _profileData?['department'] ??
+                                                _profileData?['branch'] ??
+                                                'N/A'),
+                                        _buildDivider(),
+                                        _buildDetailRow(
+                                            'Passing Year',
+                                            _profileData?['passingYear']
+                                                    ?.toString() ??
+                                                _profileData?['passingOutYear']
+                                                    ?.toString() ??
+                                                'N/A'),
+                                        _buildDivider(),
+                                        _buildDetailRow(
+                                            'Email',
+                                            _authService.currentUser?.email ??
+                                                _profileData?['email'] ??
+                                                'N/A'),
+                                      ],
                               ),
                             ),
                           ),
@@ -227,6 +295,25 @@ class _AccountScreenState extends State<AccountScreen> {
                   ),
       ),
     );
+  }
+
+  bool _isInternProfile() {
+    return _profileData?['userType'] == 'intern' ||
+        _profileData?['internshipStart'] != null;
+  }
+
+  String _formatIsoDate(String? isoDate) {
+    if (isoDate == null) return 'N/A';
+    try {
+      final dt = DateTime.parse(isoDate);
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ];
+      return '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]} ${dt.year}';
+    } catch (_) {
+      return isoDate;
+    }
   }
 
   Widget _buildDetailRow(String label, String value) {
