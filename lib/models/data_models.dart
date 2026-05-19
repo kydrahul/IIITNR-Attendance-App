@@ -24,21 +24,40 @@ class ScheduleItem {
   });
 
   factory ScheduleItem.fromJson(Map<String, dynamic> json) {
-    // Parse time string "09:00 - 10:00" to start/end integers
-    final timeStr = json['time'] as String? ?? "09:00 - 10:00";
-    final parts = timeStr.split(' - ');
-    final startStr = parts[0].split(':')[0];
-    final endStr = parts.length > 1
-        ? parts[1].split(':')[0]
-        : (int.parse(startStr) + 1).toString();
+    // Parse time string e.g. "09:30 - 10:30" or "09:00 AM - 10:00 AM"
+    final timeStr = json['time'] as String? ?? '09:00 - 10:00';
+    // Normalise AM/PM format to 24h before splitting
+    String normalize(String t) {
+      t = t.trim();
+      if (t.contains('AM') || t.contains('PM')) {
+        final isPm = t.contains('PM');
+        t = t.replaceAll(RegExp(r'[AaPp][Mm]'), '').trim();
+        final parts = t.split(':');
+        int h = int.tryParse(parts[0]) ?? 0;
+        if (isPm && h != 12) h += 12;
+        if (!isPm && h == 12) h = 0;
+        return '$h:${parts.length > 1 ? parts[1] : '00'}';
+      }
+      return t;
+    }
+
+    final timeParts = timeStr.split(' - ');
+    final startNorm = normalize(timeParts[0]);
+    final endRaw    = timeParts.length > 1 ? timeParts[1] : '';
+    final endNorm   = endRaw.isNotEmpty ? normalize(endRaw) : '';
+
+    final startHour = int.tryParse(startNorm.split(':')[0]) ?? 9;
+    final endHour   = endNorm.isNotEmpty
+        ? (int.tryParse(endNorm.split(':')[0]) ?? (startHour + 1))
+        : startHour + 1;
 
     return ScheduleItem(
       id: json['id'] is String
           ? int.tryParse(json['id']) ?? 0
           : json['id'] ?? 0,
       courseId: json['courseId']?.toString() ?? '',
-      start: int.tryParse(startStr) ?? 9,
-      end: int.tryParse(endStr) ?? 10,
+      start: startHour,
+      end: endHour,
       subject: json['courseName'] ?? '',
       faculty: json['facultyName'] ?? json['faculty'] ?? '',
       credits: json['credits'] ?? 3,
@@ -113,14 +132,21 @@ class ClassSchedule {
   final String day;
   final String time;
   final String room;
+  final String type; // 'Theory' or 'Lab'
 
-  ClassSchedule({required this.day, required this.time, required this.room});
+  ClassSchedule({
+    required this.day,
+    required this.time,
+    required this.room,
+    this.type = 'Theory',
+  });
 
   factory ClassSchedule.fromJson(Map<String, dynamic> json) {
     return ClassSchedule(
       day: json['day'] ?? '',
       time: json['time'] ?? '',
       room: json['room'] ?? '',
+      type: json['type'] ?? 'Theory',
     );
   }
 }

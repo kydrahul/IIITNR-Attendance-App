@@ -266,12 +266,25 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                                           color: AppColors.gray800)),
                                   Row(
                                     children: [
-                                      const Icon(LucideIcons.doorOpen,
-                                          size: 12, color: AppColors.gray500),
-                                      const SizedBox(width: 4),
-                                      Text(slot.room,
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: slot.type.toLowerCase() == 'lab'
+                                              ? const Color(0xFFFFF9C4)
+                                              : AppColors.blue50,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          slot.type.isEmpty ? 'Theory' : slot.type,
                                           style: AppTextStyles.label.copyWith(
-                                              color: AppColors.gray500)),
+                                            fontSize: 10,
+                                            color: slot.type.toLowerCase() == 'lab'
+                                                ? const Color(0xFFF57F17)
+                                                : AppColors.blue600,
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ],
