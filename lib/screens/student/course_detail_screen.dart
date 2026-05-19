@@ -21,6 +21,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   bool sortAsc = false;
   List<AttendanceRecord> _history = [];
   bool _isLoading = true;
+  Course? _freshCourse; // updated stats from API
+
+  // Use fresh course if available, else fall back to widget prop
+  Course get _course => _freshCourse ?? widget.course;
 
   @override
   void initState() {
@@ -48,6 +52,18 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
         setState(() => _isLoading = false);
       }
     }
+
+    // Also fetch fresh course stats (attendance %, total, present, missed)
+    try {
+      final coursesRaw = await _apiService.getCourses(forceRefresh: true);
+      final updated = coursesRaw
+          .map((json) => Course.fromJson(json))
+          .where((c) => c.id == widget.course.id)
+          .firstOrNull;
+      if (updated != null && mounted) {
+        setState(() => _freshCourse = updated);
+      }
+    } catch (_) {} // silently fail — widget.course is still shown
   }
 
   @override
@@ -126,7 +142,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(widget.course.name,
+                      Text(_course.name,
                           style: AppTextStyles.h1
                               .copyWith(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
@@ -137,7 +153,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(widget.course.faculty,
+                            Text(_course.faculty,
                                 style: AppTextStyles.bodyMedium.copyWith(
                                     color: AppColors.blue600,
                                     fontWeight: FontWeight.w500)),
@@ -182,10 +198,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                             children: [
                               Text("ATTENDANCE", style: AppTextStyles.label),
                               Text(
-                                "${widget.course.attendance}%",
+                                "${_course.attendance}%",
                                 style: AppTextStyles.h1.copyWith(
                                   fontSize: 32,
-                                  color: widget.course.attendance >= 75
+                                  color: _course.attendance >= 75
                                       ? AppColors.green600
                                       : AppColors.red500,
                                   fontWeight: FontWeight.bold,
@@ -198,15 +214,15 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                             children: [
                               _buildStatRow(
                                   "Total",
-                                  widget.course.totalClasses.toString(),
+                                  _course.totalClasses.toString(),
                                   AppColors.gray800),
                               _buildStatRow(
                                   "Present",
-                                  widget.course.attended.toString(),
+                                  _course.attended.toString(),
                                   AppColors.green600),
                               _buildStatRow(
                                   "Missed",
-                                  widget.course.missed.toString(),
+                                  _course.missed.toString(),
                                   AppColors.red500),
                             ],
                           ),
@@ -232,7 +248,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                 border: Border.all(color: AppColors.gray100),
               ),
               child: Column(
-                children: widget.course.schedule
+                children: _course.schedule
                     .map((slot) => Container(
                           padding: const EdgeInsets.only(bottom: 12),
                           margin: const EdgeInsets.only(bottom: 12),

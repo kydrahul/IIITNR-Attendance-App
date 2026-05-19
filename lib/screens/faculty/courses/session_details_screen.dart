@@ -37,27 +37,57 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen>
   String? _expandedStudentRollNo;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _hasChanges = false; // tracks if any attendance was saved
   final FacultyApiService _apiService = FacultyApiService();
 
-  void _updateAttendance(Map<String, dynamic> student, bool isPresent) {
-    if (student['isPresent'] != isPresent) {
-      setState(() {
-        student['isPresent'] = isPresent;
-        student['isEdited'] = true;
+  Future<void> _updateAttendance(
+      Map<String, dynamic> student, bool isPresent) async {
+    if (student['isPresent'] == isPresent) {
+      setState(() => _expandedStudentRollNo = null);
+      return;
+    }
 
-        final now = DateTime.now();
-        String ampm = now.hour >= 12 ? 'PM' : 'AM';
-        int hour =
-            now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
-        String minute = now.minute.toString().padLeft(2, '0');
-        student['markedTime'] = '$hour:$minute $ampm';
+    final String studentId = student['id']?.toString() ?? '';
+    final String sessionId = widget.sessionId ?? '';
 
-        _expandedStudentRollNo = null; // collapse after marking
-      });
-    } else {
-      setState(() {
-        _expandedStudentRollNo = null;
-      });
+    // Optimistic UI update
+    setState(() {
+      student['isPresent'] = isPresent;
+      student['isEdited'] = true;
+      final now = DateTime.now();
+      final ampm = now.hour >= 12 ? 'PM' : 'AM';
+      final hour =
+          now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+      final minute = now.minute.toString().padLeft(2, '0');
+      student['markedTime'] = '$hour:$minute $ampm';
+      _expandedStudentRollNo = null;
+    });
+
+    // Persist to backend if we have a real session
+    if (sessionId.isNotEmpty && studentId.isNotEmpty) {
+      try {
+        await _apiService.saveManualAttendance(
+          sessionId,
+          studentId,
+          isPresent ? 'present' : 'absent',
+        );
+        _hasChanges = true; // signal parent to re-fetch
+      } catch (e) {
+        // Rollback on failure
+        if (mounted) {
+          setState(() {
+            student['isPresent'] = !isPresent;
+            student['isEdited'] = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Save failed: ${e.toString().replaceAll('Exception: ', '')}'),
+              backgroundColor: FacultyColors.red600,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -240,7 +270,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen>
         elevation: 0,
         leading: IconButton(
           icon: const Icon(LucideIcons.chevronLeft, color: FacultyColors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context, _hasChanges),
         ),
         title: Text(
           'Session Details',

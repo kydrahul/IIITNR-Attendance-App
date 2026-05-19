@@ -388,6 +388,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
             _AttendanceTab(
               course: widget.course,
               sessions: _sessions,
+              onAttendanceChanged: _fetchCourseStudents,
             ),
             _StudentsTab(
               course: widget.course,
@@ -727,8 +728,8 @@ class _OverviewTab extends StatelessWidget {
     final bool isLab = type.toLowerCase().contains('lab');
 
     return InkWell(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final changed = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
             builder: (context) => SessionDetailsScreen(
@@ -742,6 +743,9 @@ class _OverviewTab extends StatelessWidget {
             ),
           ),
         );
+        if (changed == true && onAttendanceChanged != null) {
+          await onAttendanceChanged!();
+        }
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -802,10 +806,12 @@ class _OverviewTab extends StatelessWidget {
 class _AttendanceTab extends StatelessWidget {
   final Map<String, dynamic> course;
   final List<dynamic> sessions;
+  final Future<void> Function()? onAttendanceChanged;
 
   const _AttendanceTab({
     required this.course,
     required this.sessions,
+    this.onAttendanceChanged,
   });
 
   @override
@@ -897,8 +903,8 @@ class _AttendanceTab extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  final changed = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(
                       builder: (context) => SessionDetailsScreen(
@@ -912,6 +918,9 @@ class _AttendanceTab extends StatelessWidget {
                       ),
                     ),
                   );
+                  if (changed == true && onAttendanceChanged != null) {
+                    await onAttendanceChanged!();
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: FacultyColors.black,

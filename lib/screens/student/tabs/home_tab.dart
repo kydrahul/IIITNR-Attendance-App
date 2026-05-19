@@ -25,13 +25,15 @@ class _HomeTabState extends State<HomeTab> {
   List<Course> _allCourses = [];
   List<Course> _filteredCourses = [];
   bool _isLoading = true;
+  bool _hasError = false;
+  String? _errorMessage;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
   String locationStatus = 'neutral'; // neutral, verifying, success, error
   String? lastVerified;
   bool canScan = false;
-  int currentDayIndex = 2; // Wednesday
+  int currentDayIndex = 0; // Default Monday; corrected in initState
   final List<String> daysOfWeek = [
     'Monday',
     'Tuesday',
@@ -54,10 +56,14 @@ class _HomeTabState extends State<HomeTab> {
     final now = DateTime.now();
     if (now.weekday >= 1 && now.weekday <= 5) {
       currentDayIndex = now.weekday - 1;
+    } else {
+      // Weekend: show Monday's schedule
+      currentDayIndex = 0;
     }
   }
 
   Future<void> _fetchData() async {
+    if (mounted) setState(() { _hasError = false; _errorMessage = null; });
     try {
       // 1. Try to load from cache first
       final cachedTimetable = await _apiService.getTimetable(forceRefresh: false);
@@ -74,8 +80,15 @@ class _HomeTabState extends State<HomeTab> {
       _updateUI(freshTimetable, freshCoursesRaw);
     } catch (e) {
       debugPrint('Error fetching data: $e');
-      if (mounted && _schedule.isEmpty) {
-        setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          // Only show error state if we have nothing to display
+          if (_schedule.isEmpty && _allCourses.isEmpty) {
+            _hasError = true;
+            _errorMessage = e.toString().replaceAll('Exception: ', '');
+          }
+        });
       }
     }
   }
@@ -135,9 +148,9 @@ class _HomeTabState extends State<HomeTab> {
 
   // Direct Scan Logic
   void _showScanner() async {
-    // Optional: Pre-check permissions here if desired, but QRScreen handles it too.
-    // Let's just navigate.
-    Navigator.pushNamed(context, '/qr-scanner');
+    await Navigator.pushNamed(context, '/qr-scanner');
+    // Force refresh after scan so attendance % updates immediately
+    if (mounted) _fetchData();
   }
 
   // REPLACED _buildScanButton
@@ -275,7 +288,40 @@ class _HomeTabState extends State<HomeTab> {
                     behavior: HitTestBehavior.opaque,
                     child: _buildSearchResults(),
                   )
-                : _buildDashboardContent(),
+                : _hasError
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.wifi_off_rounded,
+                                  size: 56, color: AppColors.gray300),
+                              const SizedBox(height: 16),
+                              Text(
+                                _errorMessage ?? 'Could not load your schedule.',
+                                textAlign: TextAlign.center,
+                                style: AppTextStyles.bodyMedium
+                                    .copyWith(color: AppColors.gray500),
+                              ),
+                              const SizedBox(height: 20),
+                              ElevatedButton.icon(
+                                onPressed: _fetchData,
+                                icon: const Icon(Icons.refresh, size: 16),
+                                label: const Text('Retry'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.blue600,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : _buildDashboardContent(),
           ),
         ],
       ),
