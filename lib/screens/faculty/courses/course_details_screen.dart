@@ -1210,12 +1210,16 @@ class _RequestsTab extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w700,
                                         fontSize: 15,
                                         color: FacultyColors.black)),
                                 const SizedBox(height: 2),
                                 Text(college,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                         fontSize: 12,
                                         color: FacultyColors.gray500)),
