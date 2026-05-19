@@ -3,10 +3,50 @@ import '../../services/auth_service.dart';
 import '../../constants/colors.dart';
 import '../../constants/text_styles.dart';
 
-class DeviceMismatchScreen extends StatelessWidget {
+class DeviceMismatchScreen extends StatefulWidget {
   final String message;
 
   const DeviceMismatchScreen({super.key, required this.message});
+
+  @override
+  State<DeviceMismatchScreen> createState() => _DeviceMismatchScreenState();
+}
+
+class _DeviceMismatchScreenState extends State<DeviceMismatchScreen> {
+  bool _isSigningOut = false;
+
+  Future<void> _handleSignOut() async {
+    if (_isSigningOut) return; // guard against double-tap
+    setState(() => _isSigningOut = true);
+
+    try {
+      await AuthService().signOut();
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    } catch (e) {
+      debugPrint('DeviceMismatchScreen: signOut failed: $e');
+      if (!mounted) return;
+
+      // Show the error but still offer a navigation escape so the user is
+      // never permanently stuck on this screen.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sign-out failed: $e\nRedirecting to login anyway…'),
+          backgroundColor: AppColors.red600,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      // Brief delay so the user can read the snackbar, then navigate anyway.
+      await Future.delayed(const Duration(seconds: 3));
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    } finally {
+      if (mounted) setState(() => _isSigningOut = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +74,7 @@ class DeviceMismatchScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                message,
+                widget.message,
                 style: AppTextStyles.h3.copyWith(
                   color: AppColors.gray700,
                 ),
@@ -79,27 +119,32 @@ class DeviceMismatchScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () async {
-                    await AuthService().signOut();
-                    if (context.mounted) {
-                      Navigator.pushReplacementNamed(context, '/login');
-                    }
-                  },
+                  onPressed: _isSigningOut ? null : _handleSignOut,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.red600,
                     foregroundColor: AppColors.white,
+                    disabledBackgroundColor: AppColors.red600.withOpacity(0.6),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Text(
-                    'Sign Out',
-                    style: AppTextStyles.h3.copyWith(
-                      color: AppColors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: _isSigningOut
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          'Sign Out',
+                          style: AppTextStyles.h3.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
             ],

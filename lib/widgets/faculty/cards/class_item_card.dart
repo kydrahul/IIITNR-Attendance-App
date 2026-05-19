@@ -31,31 +31,6 @@ class ClassItemCard extends StatelessWidget {
     this.onTap,
   });
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'done':
-        return FacultyColors.green700;
-      case 'live':
-        return FacultyColors.green700;
-      case 'upcoming':
-        return FacultyColors.blue700;
-      default:
-        return FacultyColors.gray600;
-    }
-  }
-
-  Color _getStatusBg(String status) {
-    switch (status.toLowerCase()) {
-      case 'done':
-        return FacultyColors.green50;
-      case 'live':
-        return FacultyColors.green50;
-      case 'upcoming':
-        return FacultyColors.blue50;
-      default:
-        return FacultyColors.gray50;
-    }
-  }
 
   String _getOrdinal(String? sem) {
     if (sem == null || sem.isEmpty) return 'N/A';
@@ -130,20 +105,4 @@ class ClassItemCard extends StatelessWidget {
     );
   }
 
-
-  Widget _buildStat(String label, String value, {Color? valueColor}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: FacultyTextStyles.label),
-        Text(
-          value,
-          style: FacultyTextStyles.bodySmall.copyWith(
-            fontWeight: FontWeight.bold,
-            color: valueColor ?? FacultyColors.gray700,
-          ),
-        ),
-      ],
-    );
-  }
 }

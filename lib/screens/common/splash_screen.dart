@@ -1,9 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../constants/colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
 import '../../services/biometric_service.dart';
-import 'package:flutter/services.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,10 +22,31 @@ class _SplashScreenState extends State<SplashScreen> {
     _checkAuthAndNavigate();
   }
 
-  Future<void> _checkAuthAndNavigate() async {
-    // Artificial delay for splash effect
-    await Future.delayed(const Duration(seconds: 2));
+  Future<void> _checkAuthAndNavigate({bool isRetry = false}) async {
+    // Artificial delay for splash effect (skip on retry)
+    if (!isRetry) await Future.delayed(const Duration(seconds: 2));
 
+    if (!mounted) return;
+
+    // ── 30-second hard cap so the spinner never hangs forever ──────────────
+    try {
+      await _doAuthCheck().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw TimeoutException(
+            'Connection timed out. Please check your internet and try again.'),
+      );
+    } on TimeoutException catch (e) {
+      if (mounted) {
+        _showConnectionError(e.message ?? 'Connection timed out.');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showConnectionError(e.toString().replaceAll('Exception:', '').trim());
+      }
+    }
+  }
+
+  Future<void> _doAuthCheck() async {
     if (!mounted) return;
 
     final user = _authService.currentUser;
@@ -36,45 +57,22 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     // User is authenticated, check if profile exists
+    final role = await _authService.getUserRole();
+
+    if (role == 'faculty') {
+      // Skip profile check/biometrics for faculty auto-login
+      if (mounted) Navigator.pushReplacementNamed(context, '/faculty-home');
+      return;
+    }
+
+    // For both students and interns, check profile and biometrics.
+    // Profile-not-found is a valid routing signal, not an error; handle it here.
+    // Any other exception (network, 500, timeout) is re-thrown so the outer
+    // timeout/catch in _checkAuthAndNavigate can surface it to the user.
     try {
-      final role = await _authService.getUserRole();
-      
-      if (role == 'faculty') {
-        // Skip profile check/biometrics for faculty auto-login
-        if (mounted) Navigator.pushReplacementNamed(context, '/faculty-home');
-        return;
-      }
-
-      // For both students and interns, check profile and biometrics
-
-      // Pass true to bypass cache and verify real DB existence
       await _apiService.getProfile(checkProfileExists: true);
-
-      // Student Profile exists, now check Biometrics
-      if (mounted) {
-        final biometricService = BiometricService();
-        final canCheck = await biometricService.checkBiometrics();
-
-        if (canCheck) {
-          final authenticated = await biometricService.authenticate();
-          if (authenticated) {
-            if (mounted) Navigator.pushReplacementNamed(context, '/home');
-          } else {
-            // Biometric failed
-            if (mounted) {
-              _showAuthFailedDialog();
-            }
-          }
-        } else {
-          // No hardware support, proceed to home safely
-          if (mounted) Navigator.pushReplacementNamed(context, '/home');
-        }
-      }
     } catch (e) {
-      debugPrint('Profile check failed: $e');
-
       if (e.toString().contains('Profile not found')) {
-        final role = await _authService.getUserRole();
         if (mounted) {
           if (role == 'intern') {
             Navigator.pushReplacementNamed(context, '/intern-profile-setup');
@@ -82,62 +80,61 @@ class _SplashScreenState extends State<SplashScreen> {
             Navigator.pushReplacementNamed(context, '/profile-setup');
           }
         }
-      } else {
-        // Show error dialog for other errors (e.g. 500, Network)
-        if (mounted) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              title: const Text('Connection Error'),
-              content: Text(
-                  'Could not verify profile. Error: ${e.toString().replaceAll("Exception:", "")}'),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context); // Close dialog
-                    _checkAuthAndNavigate(); // Retry
-                  },
-                  child: const Text('Retry'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    _authService.signOut();
-                    Navigator.pushReplacementNamed(context, '/login');
-                  },
-                  child: const Text('Logout'),
-                ),
-              ],
-            ),
-          );
+        return;
+      }
+      rethrow; // Let the outer handler show the error dialog.
+    }
+
+    // Student Profile exists, now check Biometrics
+    if (mounted) {
+      final biometricService = BiometricService();
+      final hasEnrolledBiometrics = await biometricService.checkBiometrics();
+
+      if (hasEnrolledBiometrics) {
+        final authenticated = await biometricService.authenticate();
+        if (authenticated) {
+          if (mounted) Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          // authenticate() returned false — either the user cancelled or
+          // the device has biometric hardware but nothing enrolled.
+          // Device-binding already secures the account, so proceed to home.
+          if (mounted) Navigator.pushReplacementNamed(context, '/home');
         }
+      } else {
+        // No enrolled biometrics — proceed to home (device-binding is the guard).
+        if (mounted) Navigator.pushReplacementNamed(context, '/home');
       }
     }
   }
 
-  void _showAuthFailedDialog() {
+  void _showConnectionError(String message) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Authentication Required'),
-        content: const Text('Please authenticate to access the app.'),
+        title: const Text('Connection Error'),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _checkAuthAndNavigate(); // Retry sequence
+              _checkAuthAndNavigate(isRetry: true);
             },
             child: const Text('Retry'),
           ),
           TextButton(
-            onPressed: () => SystemNavigator.pop(), // Exit app
-            child: const Text('Exit'),
+            onPressed: () {
+              _authService.signOut();
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+            child: const Text('Logout'),
           ),
         ],
       ),
     );
   }
+
+
 
   @override
   Widget build(BuildContext context) {

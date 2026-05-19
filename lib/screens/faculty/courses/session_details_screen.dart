@@ -1,4 +1,4 @@
-import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../constants/faculty/faculty_colors.dart';
@@ -69,8 +69,14 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen>
   }
 
   Future<void> _fetchSessionAttendance() async {
+    // A null sessionId means this screen was opened without a valid session.
+    // We cannot fetch real data, so show an error instead of fake mock data.
     if (widget.sessionId == null) {
-      _initializeStudents();
+      setState(() {
+        _errorMessage =
+            'No session ID provided. Cannot load attendance data.';
+        _isLoading = false;
+      });
       return;
     }
 
@@ -109,85 +115,6 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen>
           _isLoading = false;
         });
       }
-    }
-  }
-
-  void _initializeStudents() {
-    final List<String> allNames = [
-      'Aaditya Sharma',
-      'Aarav Patel',
-      'Abhinav Kumar',
-      'Aditi Singh',
-      'Aditya Verma',
-      'Akhil Gupta',
-      'Ananya Reddy',
-      'Anika Khanna',
-      'Anjali Desai',
-      'Ansh Mishra',
-      'Arjun Nair',
-      'Aryan Rao',
-      'Bhavya Joshi',
-      'Chaitanya Das',
-      'Deepak Yadav',
-      'Devansh Tiwari',
-      'Diya Chawla',
-      'Drishya Menon',
-      'Eshan Ahuja',
-      'Gaurav Bhatia',
-      'Hari Prasad',
-      'Ishaan Iyer',
-      'Janhvi Kapoor',
-      'Karan Malhotra',
-      'Karthik Shenoy',
-      'Kavya Pillai',
-      'Lakshay Jain',
-      'Madhav Thakur',
-      'Manish Bansal',
-      'Megha Chauhan',
-      'Neha Sharma',
-      'Nikhil Agarwal',
-      'Nisha Mehra',
-      'Parth Kadam',
-      'Pooja Bhatt',
-      'Pranav Sethi',
-      'Rahul Verma',
-      'Rhea Chakraborty',
-      'Rishabh Kumar',
-      'Rohan Mehra',
-      'Rohit Gupta',
-      'Sahil Kapoor',
-      'Sanya Kapoor',
-      'Shivam Pandey',
-      'Sneha Gupta',
-      'Suraj Singh',
-      'Tanya Mathur',
-      'Utkarsh Srivastava',
-      'Vihaan Chopra',
-      'Vikram Aditya'
-    ];
-
-    allNames.shuffle(Random(42)); // predictable shuffle
-
-    int presentAdded = 0;
-
-    for (int i = 0; i < widget.totalStudents; i++) {
-      String name = i < allNames.length ? allNames[i] : 'Student ${i + 1}';
-      bool isPresent;
-
-      if (presentAdded < widget.presentCount) {
-        isPresent = true;
-        presentAdded++;
-      } else {
-        isPresent = false;
-      }
-
-      _students.add({
-        'rollNo': '2024${(100 + i).toString()}',
-        'name': name,
-        'isPresent': isPresent,
-        'isEdited': false,
-        'markedTime': widget.timeStr.split(' - ')[0],
-      });
     }
   }
 

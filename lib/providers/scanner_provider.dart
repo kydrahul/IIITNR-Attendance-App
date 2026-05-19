@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../core/network/api_client.dart';
 import '../core/utils/logger.dart';
+import '../utils/geofence_utils.dart';
+import '../services/connectivity_service.dart';
 
 class ScannerProvider extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient();
@@ -110,31 +113,37 @@ class ScannerProvider extends ChangeNotifier {
     }
     _lastScanTime = DateTime.now();
 
+    // ── Offline guard ───────────────────────────────────────────────────────
+    if (!ConnectivityService().isOnline) {
+      throw Exception(
+          'No internet connection. Connect to the network and try again.');
+    }
+
     _isProcessing = true;
     notifyListeners();
 
     try {
-      Map<String, double> location = {
-        'latitude': 0.0,
-        'longitude': 0.0,
-        'accuracy': 0.0,
-      };
-
+      // Bug fix (scenario 4 & 5): Never silently fall back to (0, 0).
+      // If GPS fails or permission is denied we must surface a specific error
+      // instead of sending default coordinates — which the backend would
+      // (correctly) reject as an out-of-bounds GPS failure anyway.
+      Map<String, double> location;
       try {
         location = await _getCurrentLocation();
       } catch (e) {
-        AppLogger.w('Location fetch failed, using default: $e');
-        if (context.mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(
-               content: Text('Location unavailable. Proceeding with attendance...'),
-               duration: Duration(seconds: 2),
-               backgroundColor: Colors.orange,
-             ),
-           );
-        }
+        AppLogger.w('Location fetch failed: $e');
+        // Propagate a distinct, user-friendly message.
+        throw Exception('Location unavailable. Please enable GPS and grant location permission, then try again.');
       }
 
+      // Bug fix (scenario 4): Extra guard — if geolocator somehow returned
+      // the (0, 0) default despite no exception, reject it explicitly.
+      if (GeofenceUtils.isNullIsland(
+            location['latitude'] ?? 0.0, location['longitude'] ?? 0.0)) {
+        throw Exception('Location unavailable. GPS returned an invalid fix (0, 0). Move to an open area and retry.');
+      }
+
+      // ── 15-second timeout so the spinner can never hang forever ──────────
       final response = await _apiClient.post(
         '/student/scan-qr',
         body: {
@@ -143,11 +152,19 @@ class ScannerProvider extends ChangeNotifier {
             'longitude': location['longitude']!,
             'accuracy': location['accuracy'],
         },
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw TimeoutException(
+            'The server took too long to respond. Please try again.'),
       );
 
       _isProcessing = false;
       notifyListeners();
       return response['message'] ?? 'Attendance marked successfully';
+    } on TimeoutException catch (e) {
+      _isProcessing = false;
+      notifyListeners();
+      throw Exception(e.message ?? 'Request timed out. Please try again.');
     } catch (e) {
       _isProcessing = false;
       notifyListeners();

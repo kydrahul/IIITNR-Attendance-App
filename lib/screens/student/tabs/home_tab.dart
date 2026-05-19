@@ -8,6 +8,7 @@ import '../../../widgets/common/search_bar.dart';
 import '../../../widgets/cards/class_item_card.dart';
 import '../../../widgets/cards/idle_item_card.dart';
 import '../../../widgets/common/skeleton_loaders.dart';
+import '../../../utils/responsive.dart';
 
 import '../weekly_timetable_screen.dart';
 import '../course_detail_screen.dart';
@@ -64,7 +65,7 @@ class _HomeTabState extends State<HomeTab> {
       final cachedCoursesRaw = await _apiService.getCourses(forceRefresh: false);
 
       if (cachedTimetable.isNotEmpty || cachedCoursesRaw.isNotEmpty) {
-        _updateUI(cachedTimetable, cachedCoursesRaw);
+        if (mounted) _updateUI(cachedTimetable, cachedCoursesRaw);
       }
 
       // 2. Fetch fresh data in the background
@@ -399,7 +400,10 @@ class _HomeTabState extends State<HomeTab> {
     return RefreshIndicator(
       onRefresh: _fetchData,
       child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: Responsive.horizontalPadding(context),
+          vertical: 8,
+        ),
         children: [
           // Actions
           _buildScanButton(),

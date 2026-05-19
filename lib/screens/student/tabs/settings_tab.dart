@@ -8,6 +8,7 @@ import '../../../services/api_service.dart';
 import '../settings/terms_screen.dart';
 import '../settings/privacy_screen.dart';
 import '../settings/about_screen.dart';
+import '../../../utils/snackbar_helper.dart';
 
 class SettingsTab extends StatefulWidget {
   const SettingsTab({super.key});
@@ -21,6 +22,7 @@ class _SettingsTabState extends State<SettingsTab> {
   final AuthService _authService = AuthService();
   Map<String, dynamic>? _profileData;
   bool _isLoading = true;
+  String? _profileError; // shown in UI when fetch fails
 
   @override
   void initState() {
@@ -29,6 +31,7 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   Future<void> _fetchProfile() async {
+    if (mounted) setState(() { _isLoading = true; _profileError = null; });
     try {
       final profile = await _apiService.getProfile();
       if (mounted) {
@@ -39,7 +42,11 @@ class _SettingsTabState extends State<SettingsTab> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _profileError = 'Could not load profile. Pull down to retry.';
+        });
+        showErrorSnackbar(context, 'Could not load profile. Pull down to retry.');
       }
     }
   }
@@ -54,6 +61,33 @@ class _SettingsTabState extends State<SettingsTab> {
           Text("Settings",
               style: AppTextStyles.h1.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 24),
+
+          // Profile fetch error banner
+          if (_profileError != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.red50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.red100),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline,
+                      color: AppColors.red500, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _profileError!,
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.red500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // Profile Header Section (Detailed)
           if (!_isLoading) ...[
@@ -213,11 +247,20 @@ class _SettingsTabState extends State<SettingsTab> {
                   label: "Logout",
                   labelColor: AppColors.red500,
                   onTap: () async {
-                    await _apiService.clearCache();
-                    await AuthService().signOut();
-                    if (context.mounted) {
-                      Navigator.pushNamedAndRemoveUntil(
-                          context, '/login', (route) => false);
+                    try {
+                      await _apiService.clearCache();
+                      await AuthService().signOut();
+                      if (context.mounted) {
+                        Navigator.pushNamedAndRemoveUntil(
+                            context, '/login', (route) => false);
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        showErrorSnackbar(
+                          context,
+                          'Sign-out failed. Please try again.',
+                        );
+                      }
                     }
                   },
                 ),

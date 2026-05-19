@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../constants/colors.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../utils/responsive.dart';
 
 class CustomHeader extends StatefulWidget {
   final VoidCallback onProfileClick;
@@ -36,8 +37,8 @@ class _CustomHeaderState extends State<CustomHeader> {
       if (mounted) {
         setState(() {
           _profileData = profile;
-          _profileData!['photoUrl'] = user?.photoURL;
-          _profileData!['email'] = user?.email;
+          _profileData?['photoUrl'] = user?.photoURL;
+          _profileData?['email'] = user?.email;
           _isLoading = false;
         });
       }
@@ -54,9 +55,12 @@ class _CustomHeaderState extends State<CustomHeader> {
   @override
   Widget build(BuildContext context) {
     final userName = _profileData?['name'] ?? 'User';
+    final hPad = Responsive.horizontalPadding(context);
+    final logoH = Responsive.h(36, context).clamp(28.0, 44.0);
+    final avatarSize = Responsive.w(38, context).clamp(32.0, 44.0);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: Responsive.h(16, context)),
       color: AppColors.white,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -64,11 +68,11 @@ class _CustomHeaderState extends State<CustomHeader> {
           // Logo
           Image.asset(
             'assets/logo.png',
-            height: 40,
+            height: logoH,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) => Container(
-              height: 40,
-              width: 100,
+              height: logoH,
+              width: 90,
               color: AppColors.gray200,
               alignment: Alignment.center,
               child: const Text("LOGO",
@@ -80,8 +84,8 @@ class _CustomHeaderState extends State<CustomHeader> {
           GestureDetector(
             onTap: widget.onProfileClick,
             child: Container(
-              width: 40,
-              height: 40,
+              width: avatarSize,
+              height: avatarSize,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppColors.gray100,
@@ -95,8 +99,8 @@ class _CustomHeaderState extends State<CustomHeader> {
                 ],
               ),
               child: _isLoading
-                  ? const Padding(
-                      padding: EdgeInsets.all(10),
+                  ? Padding(
+                      padding: const EdgeInsets.all(9),
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : ClipOval(

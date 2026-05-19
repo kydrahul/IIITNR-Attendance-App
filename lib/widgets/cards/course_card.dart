@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../constants/colors.dart';
 import '../../constants/text_styles.dart';
 import '../../models/data_models.dart';
+import '../../utils/responsive.dart';
 
 class CourseCard extends StatelessWidget {
   final Course course;
@@ -35,20 +36,37 @@ class CourseCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(course.name, style: AppTextStyles.h4),
-                    const SizedBox(height: 2),
-                    Text(course.faculty,
+                // Name + faculty — takes available space, shrinks before %
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        course.name,
+                        style: AppTextStyles.h4.copyWith(
+                          fontSize: Responsive.sp(15, context),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        course.faculty,
                         style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.gray500,
-                            fontWeight: FontWeight.w500)),
-                  ],
+                            fontWeight: FontWeight.w500,
+                            fontSize: Responsive.sp(11, context)),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   "${course.attendance}%",
                   style: AppTextStyles.h2.copyWith(
+                    fontSize: Responsive.sp(18, context),
                     color: course.attendance > 75
                         ? AppColors.green600
                         : AppColors.red600,

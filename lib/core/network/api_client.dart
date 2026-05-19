@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -56,12 +57,21 @@ class ApiClient {
     };
 
     if (useToken) {
-      final token = await _authService.getToken();
+      String? token;
+      try {
+        token = await _authService
+            .getToken()
+            .timeout(const Duration(seconds: 10),
+                onTimeout: () => null);
+      } catch (_) {}
       if (token != null) {
         headers['Authorization'] = 'Bearer $token';
       }
       try {
-        final deviceId = await _deviceService.getDeviceId();
+        final deviceId = await _deviceService
+            .getDeviceId()
+            .timeout(const Duration(seconds: 5),
+                onTimeout: () => 'unknown-device');
         headers['x-device-id'] = deviceId;
       } catch (e) {
         if (kDebugMode) {
@@ -79,21 +89,21 @@ class ApiClient {
       if (method == 'GET') {
         response = await http
             .get(url, headers: headers)
-            .timeout(const Duration(seconds: 30));
+            .timeout(const Duration(seconds: 15));
       } else if (method == 'POST') {
         response = await http
             .post(url,
                 headers: headers, body: body != null ? json.encode(body) : null)
-            .timeout(const Duration(seconds: 30));
+            .timeout(const Duration(seconds: 15));
       } else if (method == 'DELETE') {
         response = await http
             .delete(url, headers: headers)
-            .timeout(const Duration(seconds: 30));
+            .timeout(const Duration(seconds: 15));
       } else if (method == 'PUT') {
         response = await http
             .put(url,
                 headers: headers, body: body != null ? json.encode(body) : null)
-            .timeout(const Duration(seconds: 30));
+            .timeout(const Duration(seconds: 15));
       } else {
         throw Exception('Unsupported HTTP method');
       }

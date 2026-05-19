@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../constants/faculty/faculty_colors.dart';
 import '../../../constants/faculty/faculty_text_styles.dart';
+import '../../../utils/date_utils.dart' as du;
 import 'dart:math';
 
 class StudentStatsScreen extends StatefulWidget {
@@ -117,23 +118,7 @@ class _StudentStatsScreenState extends State<StudentStatsScreen> {
     });
   }
 
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
-    ];
-    return '${date.day} ${months[date.month - 1]}, ${date.year}';
-  }
+  String _formatDate(DateTime date) => du.formatDateShort(date);
 
   @override
   Widget build(BuildContext context) {

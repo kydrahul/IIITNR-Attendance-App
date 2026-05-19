@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../constants/colors.dart';
+import '../../constants/faculty_list.dart';
 import '../../constants/text_styles.dart';
 import '../../services/api_service.dart';
 import '../../services/biometric_service.dart';
+import '../../utils/date_utils.dart' as du;
+import '../../utils/responsive.dart';
 
 class InternProfileSetupScreen extends StatefulWidget {
   const InternProfileSetupScreen({super.key});
@@ -25,33 +28,6 @@ class _InternProfileSetupScreenState extends State<InternProfileSetupScreen> {
   DateTime? _internshipEnd;
 
   bool _isLoading = false;
-
-  final List<String> facultyList = [
-    'Abhishek Sharma — Asst. Professor, ECE',
-    'Amit Kumar Agrawal — Assoc. Professor, Management',
-    'Anurag Singh — Assoc. Professor, ECE',
-    'Aruna Shukla — Asst. Professor, English',
-    'Avantika Singh — Asst. Professor, DSAI',
-    'Bipin Chandra Mandi — Assoc. Professor, ECE',
-    'Chandra Shekhar Nishad — Asst. Professor, Maths',
-    'Deepika Gupta — Asst. Professor, ECE',
-    'Gulshan Soni — Asst. Professor, CSE',
-    'Kavita Jaiswal — Asst. Professor, CSE',
-    'Krishnand Vishwakarma — Asst. Professor, Maths',
-    'Kumar Gaurav Atram — Professor of Practice, DSAI',
-    'Lakhindar Murmu — Asst. Professor, ECE',
-    'Maifuz Ali — Assoc. Professor, ECE',
-    'Mallikharjuna Rao K — Asst. Professor, DSAI',
-    'Manoj Kumar Majumder — Assoc. Professor, ECE',
-    'Mithilesh Kumar Chaube — Assoc. Professor, Maths',
-    'Punya Prasanna Paltani — Assoc. Professor, Physics',
-    'Rajarshi Mahapatra — Professor, ECE',
-    'Ramakrishna Bandi — Assoc. Professor, Maths',
-    'Ruhul Amin — Asst. Professor, ECE',
-    'Sachchida Nand Mishra — Asst. Professor, DSAI',
-    'Santosh Kumar — Assoc. Professor, CSE',
-    'SatyaNarayan Vollala — Assoc. Professor, CSE',
-  ];
 
   Future<void> _pickDate({required bool isStart}) async {
     final now = DateTime.now();
@@ -88,24 +64,7 @@ class _InternProfileSetupScreenState extends State<InternProfileSetupScreen> {
     }
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return 'Select date';
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
-    ];
-    return '${date.day.toString().padLeft(2, '0')} ${months[date.month - 1]} ${date.year}';
-  }
+  String _formatDate(DateTime? date) => du.formatDateDMY(date);
 
   Future<void> _showConfirmationDialog() async {
     if (!_formKey.currentState!.validate()) return;
@@ -230,23 +189,10 @@ class _InternProfileSetupScreenState extends State<InternProfileSetupScreen> {
 
   Future<void> _handleBiometricAndRoute(String targetRoute) async {
     final biometricService = BiometricService();
-    final canCheck = await biometricService.checkBiometrics();
-
-    if (canCheck) {
-      final authenticated = await biometricService.authenticate();
-      if (!authenticated) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Biometric authentication failed or cancelled.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
+    final hasEnrolledBiometrics = await biometricService.checkBiometrics();
+    if (hasEnrolledBiometrics) {
+      await biometricService.authenticate();
     }
-
     if (mounted) {
       Navigator.pushReplacementNamed(context, targetRoute);
     }
@@ -255,6 +201,7 @@ class _InternProfileSetupScreenState extends State<InternProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
@@ -298,7 +245,7 @@ class _InternProfileSetupScreenState extends State<InternProfileSetupScreen> {
             // Scrollable Form
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(Responsive.horizontalPadding(context)),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -385,7 +332,7 @@ class _InternProfileSetupScreenState extends State<InternProfileSetupScreen> {
                             child: Text('— None —',
                                 style: TextStyle(color: AppColors.gray500)),
                           ),
-                          ...facultyList.map((f) => DropdownMenuItem<String>(
+                          ...kFacultyList.map((f) => DropdownMenuItem<String>(
                                 value: f,
                                 child: Text(
                                   f.split(' — ').first,

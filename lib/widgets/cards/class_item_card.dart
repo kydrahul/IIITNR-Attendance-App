@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../constants/colors.dart';
 import '../../constants/text_styles.dart';
+import '../../utils/responsive.dart';
 
 class ClassItemCard extends StatelessWidget {
   final String startTime;
@@ -53,6 +54,7 @@ class ClassItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final timeColWidth = Responsive.w(58, context).clamp(48.0, 68.0);
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       child: Row(
@@ -60,15 +62,17 @@ class ClassItemCard extends StatelessWidget {
         children: [
           // Time Column
           SizedBox(
-            width: 60,
+            width: timeColWidth,
             child: Column(
               children: [
                 Text(startTime,
                     style: AppTextStyles.body.copyWith(
                         fontWeight: FontWeight.bold,
                         color: AppColors.gray800,
-                        fontSize: 14)),
-                Text(endTime, style: AppTextStyles.label),
+                        fontSize: Responsive.sp(13, context))),
+                Text(endTime,
+                    style: AppTextStyles.label.copyWith(
+                        fontSize: Responsive.sp(9, context))),
                 if (status == 'Upcoming') ...[
                   const SizedBox(height: 4),
                   Container(

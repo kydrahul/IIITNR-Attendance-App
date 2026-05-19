@@ -135,25 +135,28 @@ class Course {
   factory Course.fromJson(Map<String, dynamic> json) {
     return Course(
       id: json['id']?.toString() ?? json['_id']?.toString() ?? '',
-      code: json['code'] ?? '',
-      name: json['name'] ?? '',
-      section: json['section'] ?? 'A',
-      enrolledCount: json['enrolledCount'] ?? 0,
+      code: json['code']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      section: json['section']?.toString() ?? 'A',
+      enrolledCount: int.tryParse(json['enrolledCount']?.toString() ?? '') ?? 0,
       timetable: (json['timetable'] as List?)
               ?.map((t) => TimetableSlot.fromJson(t))
               .toList() ??
           [],
-      joinCode: json['joinCode'] ?? '',
-      department: json['department'] ?? json['branch'] ?? '',
+      joinCode: json['joinCode']?.toString() ?? '',
+      department: json['department']?.toString() ?? json['branch']?.toString() ?? '',
       academicYear: json['year']?.toString() ?? json['academicYear']?.toString() ?? '',
-      className: json['className'],
-      credits: json['credits'] ?? 3,
+      className: json['className']?.toString(),
+      credits: int.tryParse(json['credits']?.toString() ?? '') ?? 3,
       semester: json['semester']?.toString(),
-      session: json['session'],
-      degree: json['degree'],
+      session: json['session']?.toString(),
+      degree: json['degree']?.toString(),
       isArchived: json['isArchived'] == true,
     );
   }
+
+  /// True when this is a Summer internship session.
+  bool get isSummer => session == 'Summer';
 
   @override
   bool operator ==(Object other) {

@@ -4,7 +4,14 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
 
 class DeviceService {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  // Use encryptedSharedPreferences on Android so that devices without
+  // enrolled biometrics can still read/write device IDs. The standard
+  // Android Keystore option can require biometric unlock, causing hangs.
+  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+  );
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
 
   // Get or generate device ID

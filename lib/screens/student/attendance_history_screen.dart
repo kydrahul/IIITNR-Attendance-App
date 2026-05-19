@@ -30,14 +30,14 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
       // 1. Load from cache first
       final cachedHistory = await _apiService.getAttendanceHistory(forceRefresh: false);
       if (cachedHistory.isNotEmpty) {
-        _updateUI(cachedHistory);
+        if (mounted) _updateUI(cachedHistory);
       } else {
-        setState(() => _isLoading = true);
+        if (mounted) setState(() => _isLoading = true);
       }
 
       // 2. Fetch fresh data in the background
       final freshHistory = await _apiService.getAttendanceHistory(forceRefresh: true);
-      _updateUI(freshHistory);
+      if (mounted) _updateUI(freshHistory);
     } catch (e) {
       if (mounted && _attendanceHistory.isEmpty) {
         setState(() {

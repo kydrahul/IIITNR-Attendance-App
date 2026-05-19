@@ -4,6 +4,7 @@ import '../../constants/colors.dart';
 import '../../constants/text_styles.dart';
 import '../../services/api_service.dart';
 import '../../services/biometric_service.dart';
+import '../../utils/responsive.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -198,23 +199,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   Future<void> _handleBiometricAndRoute(String targetRoute) async {
     final biometricService = BiometricService();
-    final canCheck = await biometricService.checkBiometrics();
-
-    if (canCheck) {
-      final authenticated = await biometricService.authenticate();
-      if (!authenticated) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Biometric authentication failed or cancelled.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
+    final hasEnrolledBiometrics = await biometricService.checkBiometrics();
+    if (hasEnrolledBiometrics) {
+      await biometricService.authenticate();
     }
-
     if (mounted) {
       Navigator.pushReplacementNamed(context, targetRoute);
     }
@@ -223,6 +211,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
@@ -243,7 +232,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             // Scrollable Form
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(Responsive.horizontalPadding(context)),
                 child: Form(
                   key: _formKey,
                   child: Column(

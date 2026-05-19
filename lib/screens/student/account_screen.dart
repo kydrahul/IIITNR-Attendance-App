@@ -4,6 +4,7 @@ import '../../constants/colors.dart';
 import '../../constants/text_styles.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../utils/responsive.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -97,7 +98,8 @@ class _AccountScreenState extends State<AccountScreen> {
                         children: [
                           // Header
                           Padding(
-                            padding: const EdgeInsets.all(24),
+                            padding: EdgeInsets.all(
+                                Responsive.horizontalPadding(context)),
                             child: Row(
                               children: [
                                 GestureDetector(
@@ -128,8 +130,8 @@ class _AccountScreenState extends State<AccountScreen> {
                           Column(
                             children: [
                               Container(
-                                width: 96,
-                                height: 96,
+                                width: Responsive.w(88, context).clamp(72.0, 104.0),
+                                height: Responsive.w(88, context).clamp(72.0, 104.0),
                                 padding: const EdgeInsets.all(4),
                                 decoration: const BoxDecoration(
                                   shape: BoxShape.circle,
@@ -181,7 +183,9 @@ class _AccountScreenState extends State<AccountScreen> {
 
                           // Details List
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            padding: EdgeInsets.symmetric(
+                                horizontal:
+                                    Responsive.horizontalPadding(context)),
                             child: Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(

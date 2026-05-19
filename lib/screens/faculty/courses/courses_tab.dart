@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:flutter/services.dart';
 import '../../../constants/faculty/faculty_colors.dart';
 import '../../../constants/faculty/faculty_text_styles.dart';
+import '../../../utils/date_utils.dart' as du;
 import 'add_course_dialog.dart';
 import 'course_details_screen.dart';
 import '../../../services/faculty/faculty_api_service.dart';
@@ -513,22 +513,7 @@ class _CourseCard extends StatelessWidget {
     required this.onRefresh,
   });
 
-  String _getOrdinal(String n) {
-    if (n == 'N/A') return n;
-    final i = int.tryParse(n);
-    if (i == null) return n;
-    if (i % 100 >= 11 && i % 100 <= 13) return '${i}th';
-    switch (i % 10) {
-      case 1:
-        return '${i}st';
-      case 2:
-        return '${i}nd';
-      case 3:
-        return '${i}rd';
-      default:
-        return '${i}th';
-    }
-  }
+  String _getOrdinal(String n) => du.semesterOrdinal(n);
 
   void _showJoinCodeDialog(BuildContext context) {
     JoinCodeDialog.show(context, course.name, course.code, course.joinCode);

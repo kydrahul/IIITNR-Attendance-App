@@ -1,20 +1,26 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/faculty/faculty_api_service.dart';
+import '../services/live_session_timer_service.dart';
 import '../models/faculty/faculty_models.dart';
+import '../services/connectivity_service.dart';
 
+/// Holds all UI-visible state for an active live QR attendance session.
+///
+/// Timer/polling concerns are fully delegated to [LiveSessionTimerService];
+/// this class only receives callbacks from the service and calls
+/// [notifyListeners] so the widget tree can rebuild.
 class LiveSessionProvider extends ChangeNotifier {
   final FacultyApiService _apiService = FacultyApiService();
-
   final Map<String, dynamic> course;
 
   LiveSessionProvider({required this.course}) {
     _init();
   }
 
-  // Session States
+  // ─── Session state ─────────────────────────────────────────────────────────
   bool _qrActive = false;
   bool get qrActive => _qrActive;
 
@@ -24,67 +30,12 @@ class LiveSessionProvider extends ChangeNotifier {
   String? _sessionId;
   String? get sessionId => _sessionId;
 
-  // Settings
-  int _qrDuration = 5;
-  int get qrDuration => _qrDuration;
-  set qrDuration(int val) {
-    _qrDuration = val;
-    notifyListeners();
-  }
+  // ─── QR / timer display values ────────────────────────────────────────────
+  String _qrValue = 'SessionData_v1';
+  String get qrValue => _qrValue;
 
-  int _locationRadius = 25;
-  int get locationRadius => _locationRadius;
-  set locationRadius(int val) {
-    _locationRadius = val;
-    notifyListeners();
-  }
-
-  String? _selectedRoom;
-  String? get selectedRoom => _selectedRoom;
-  set selectedRoom(String? val) {
-    _selectedRoom = val;
-    notifyListeners();
-  }
-
-  bool _autoRefresh = true;
-  bool get autoRefresh => _autoRefresh;
-  set autoRefresh(bool val) {
-    _autoRefresh = val;
-    notifyListeners();
-  }
-
-  int _autoRefreshInterval = 10;
-  int get autoRefreshInterval => _autoRefreshInterval;
-  set autoRefreshInterval(int val) {
-    _autoRefreshInterval = val;
-    notifyListeners();
-  }
-
-  String _classType = 'Theory';
-  String get classType => _classType;
-  set classType(String val) {
-    _classType = val;
-    notifyListeners();
-  }
-
-  // Room & Proximity Info
-  List<RoomModel> _rooms = [];
-  List<RoomModel> get rooms => _rooms;
-
-  bool _isLoadingRooms = false;
-  bool get isLoadingRooms => _isLoadingRooms;
-
-  bool _isLocationRequired = true;
-  bool get isLocationRequired => _isLocationRequired;
-  set isLocationRequired(bool val) {
-    _isLocationRequired = val;
-    notifyListeners();
-  }
-
-  // Timers Data
-  Timer? _sessionTimer;
-  Timer? _refreshTimer;
-  Timer? _attendancePollTimer;
+  int _qrVersion = 1;
+  int get qrVersion => _qrVersion;
 
   int _sessionTimeRemaining = 300;
   int get sessionTimeRemaining => _sessionTimeRemaining;
@@ -92,18 +43,49 @@ class LiveSessionProvider extends ChangeNotifier {
   int _qrRefreshCountdown = 10;
   int get qrRefreshCountdown => _qrRefreshCountdown;
 
-  int _qrVersion = 1;
-  int get qrVersion => _qrVersion;
+  // ─── Settings ─────────────────────────────────────────────────────────────
+  int _qrDuration = 5; // minutes
+  int get qrDuration => _qrDuration;
+  set qrDuration(int val) { _qrDuration = val; notifyListeners(); }
 
-  String _qrValue = 'SessionData_v1';
-  String get qrValue => _qrValue;
+  int _locationRadius = 25;
+  int get locationRadius => _locationRadius;
+  set locationRadius(int val) { _locationRadius = val; notifyListeners(); }
 
-  // Manual Attendance States
-  String _searchQuery = '';
-  String get searchQuery => _searchQuery;
+  String? _selectedRoom;
+  String? get selectedRoom => _selectedRoom;
+  set selectedRoom(String? val) { _selectedRoom = val; notifyListeners(); }
 
+  bool _autoRefresh = true;
+  bool get autoRefresh => _autoRefresh;
+  set autoRefresh(bool val) { _autoRefresh = val; notifyListeners(); }
+
+  int _autoRefreshInterval = 10;
+  int get autoRefreshInterval => _autoRefreshInterval;
+  set autoRefreshInterval(int val) { _autoRefreshInterval = val; notifyListeners(); }
+
+  String _classType = 'Theory';
+  String get classType => _classType;
+  set classType(String val) { _classType = val; notifyListeners(); }
+
+  bool _isLocationRequired = true;
+  bool get isLocationRequired => _isLocationRequired;
+  set isLocationRequired(bool val) { _isLocationRequired = val; notifyListeners(); }
+
+  // ─── Rooms ────────────────────────────────────────────────────────────────
+  List<RoomModel> _rooms = [];
+  List<RoomModel> get rooms => _rooms;
+
+  bool _isLoadingRooms = false;
+  bool get isLoadingRooms => _isLoadingRooms;
+
+  // ─── Student list (manual attendance) ─────────────────────────────────────
   List<Map<String, dynamic>> _students = [];
   List<Map<String, dynamic>> get students => _students;
+
+  String _searchQuery = '';
+  String get searchQuery => _searchQuery;
+  void setSearchQuery(String q) { _searchQuery = q; notifyListeners(); }
 
   String? _expandedStudentRollNo;
   String? get expandedStudentRollNo => _expandedStudentRollNo;
@@ -112,23 +94,19 @@ class LiveSessionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setSearchQuery(String query) {
-    _searchQuery = query;
-    notifyListeners();
-  }
+  // ─── Timer service (owned here, delegates work outwards) ──────────────────
+  LiveSessionTimerService? _timerService;
+
+  // ─── Lifecycle ────────────────────────────────────────────────────────────
 
   @override
   void dispose() {
-    _sessionTimer?.cancel();
-    _refreshTimer?.cancel();
-    _attendancePollTimer?.cancel();
+    _timerService?.dispose();
     super.dispose();
   }
 
   Future<void> _init() async {
     debugPrint('LiveSessionProvider: Starting parallel initialization...');
-
-    // We run these in parallel so one slow API doesn't block the others
     await Future.wait([
       _loadSettings()
           .then((_) => debugPrint('LiveSessionProvider: Settings loaded')),
@@ -138,20 +116,24 @@ class LiveSessionProvider extends ChangeNotifier {
           .then((_) => debugPrint('LiveSessionProvider: Students loaded')),
     ]).catchError((e) {
       debugPrint('LiveSessionProvider: Initialization error: $e');
-      return []; // Return empty list to satisfy Future.wait
+      return <void>[];
     });
-
     debugPrint('LiveSessionProvider: Initialization complete.');
   }
 
+  // ─── Rooms & proximity ────────────────────────────────────────────────────
+
   Future<void> fetchRooms() async {
+    if (!ConnectivityService().isOnline) {
+      debugPrint('LiveSessionProvider: fetchRooms skipped — offline');
+      _isLoadingRooms = false;
+      notifyListeners();
+      return;
+    }
     _isLoadingRooms = true;
     notifyListeners();
     try {
-      debugPrint('LiveSessionProvider: Calling _apiService.getRooms()...');
       _rooms = await _apiService.getRooms();
-      debugPrint(
-          'LiveSessionProvider: Successfully fetched ${_rooms.length} rooms.');
     } catch (e) {
       debugPrint('LiveSessionProvider: Failed to fetch rooms: $e');
     } finally {
@@ -164,50 +146,42 @@ class LiveSessionProvider extends ChangeNotifier {
     if (!_isLocationRequired) return [];
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw Exception("Location services are disabled.");
-      }
+      if (!serviceEnabled) throw Exception('Location services are disabled.');
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          throw Exception("Location permission denied.");
+          throw Exception('Location permission denied.');
         }
       }
-
       if (permission == LocationPermission.deniedForever) {
-        throw Exception("Location permissions are permanently denied.");
+        throw Exception('Location permissions are permanently denied.');
       }
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.best,
-      );
+          desiredAccuracy: LocationAccuracy.best)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw TimeoutException(
+                'GPS timed out. Move to an open area and try again.'),
+          );
 
-      List<RoomModel> candidates = [];
-
-      for (var room in _rooms) {
+      final candidates = <RoomModel>[];
+      for (final room in _rooms) {
         final distance = Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          room.latitude,
-          room.longitude,
-        );
-
-        // Potential candidate if within 30m
-        if (distance < 30) {
-          candidates.add(room);
-        }
+            position.latitude, position.longitude,
+            room.latitude, room.longitude);
+        if (distance < 30) candidates.add(room);
       }
 
-      // Sort by distance if multiple candidates
       if (candidates.length > 1) {
         candidates.sort((a, b) {
-          final distA = Geolocator.distanceBetween(
+          final dA = Geolocator.distanceBetween(
               position.latitude, position.longitude, a.latitude, a.longitude);
-          final distB = Geolocator.distanceBetween(
+          final dB = Geolocator.distanceBetween(
               position.latitude, position.longitude, b.latitude, b.longitude);
-          return distA.compareTo(distB);
+          return dA.compareTo(dB);
         });
         return candidates;
       } else if (candidates.length == 1) {
@@ -215,23 +189,20 @@ class LiveSessionProvider extends ChangeNotifier {
         notifyListeners();
         return candidates;
       }
-
       return [];
     } catch (e) {
       debugPrint('Proximity detection failed: $e');
-      rethrow; // Rethrow to allow UI to show snackbar
+      rethrow;
     }
   }
 
+  // ─── Settings ─────────────────────────────────────────────────────────────
+
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-
-    // 1. Local overrides (Radius, Interval)
     _locationRadius = prefs.getInt('default_scan_radius') ?? 50;
     _autoRefreshInterval = prefs.getInt('default_qr_refresh_interval') ?? 10;
     _qrRefreshCountdown = _autoRefreshInterval;
-
-    // 2. Fetch Profile to get Global Location Preference
     try {
       final profile = await _apiService.getProfile();
       final settings = profile.settings;
@@ -241,26 +212,26 @@ class LiveSessionProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Failed to load profile settings for location: $e');
     }
-
     notifyListeners();
   }
 
+  // ─── Students ─────────────────────────────────────────────────────────────
+
   Future<void> _initializeStudents() async {
     try {
-      final listed = await _apiService.listCourseStudents(course['id'],
-          sessionId: _sessionId);
-      _students.clear();
-      for (var student in listed) {
-        _students.add({
-          'id': student.id,
-          'name': student.name,
-          'rollNo': student.rollNo,
-          'isPresent': student.status?.toLowerCase() == 'present',
-          'isEdited': false,
-          'markedTime': student.markedAt ?? '',
-          'isUpdating': false,
-        });
-      }
+      final listed = await _apiService.listCourseStudents(
+          course['id'], sessionId: _sessionId);
+      _students = listed
+          .map((s) => {
+                'id': s.id,
+                'name': s.name,
+                'rollNo': s.rollNo,
+                'isPresent': s.status?.toLowerCase() == 'present',
+                'isEdited': false,
+                'markedTime': s.markedAt ?? '',
+                'isUpdating': false,
+              })
+          .toList();
       notifyListeners();
     } catch (e) {
       debugPrint('Failed to fetch students: $e');
@@ -270,55 +241,56 @@ class LiveSessionProvider extends ChangeNotifier {
   Future<void> updateAttendance(
       Map<String, dynamic> student, bool isPresent) async {
     final originalStatus = student['isPresent'];
-    if (originalStatus != isPresent) {
-      // 1. Update local state immediately (Optimistic UI)
-      student['isPresent'] = isPresent;
-      student['isEdited'] = true;
-      student['isUpdating'] =
-          true; // Prevent polling from overwriting while we save
-
-      final now = DateTime.now();
-      String ampm = now.hour >= 12 ? 'PM' : 'AM';
-      int hour =
-          now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
-      String minute = now.minute.toString().padLeft(2, '0');
-      student['markedTime'] = '$hour:$minute $ampm';
-
+    if (originalStatus == isPresent) {
       _expandedStudentRollNo = null;
       notifyListeners();
+      return;
+    }
 
-      try {
-        if (_sessionId != null && student['id'] != null) {
-          // Backend expects lowercase 'present' or 'absent'
-          await _apiService.saveManualAttendance(
-              _sessionId!, student['id'], isPresent ? 'present' : 'absent');
-        }
-      } catch (e) {
-        debugPrint('Failed to save manual attendance: $e');
-        // 2. Rollback on error
-        student['isPresent'] = originalStatus;
-        student['isEdited'] = false;
-        notifyListeners();
-      } finally {
-        student['isUpdating'] = false;
+    // Optimistic update
+    student['isPresent'] = isPresent;
+    student['isEdited'] = true;
+    student['isUpdating'] = true;
+    final now = DateTime.now();
+    final h = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+    student['markedTime'] =
+        '$h:${now.minute.toString().padLeft(2, '0')} ${now.hour >= 12 ? 'PM' : 'AM'}';
+    _expandedStudentRollNo = null;
+    notifyListeners();
+
+    try {
+      if (_sessionId != null && student['id'] != null) {
+        await _apiService.saveManualAttendance(
+            _sessionId!, student['id'], isPresent ? 'present' : 'absent');
       }
-    } else {
-      _expandedStudentRollNo = null;
+    } catch (e) {
+      debugPrint('Failed to save manual attendance: $e');
+      student['isPresent'] = originalStatus;
+      student['isEdited'] = false;
       notifyListeners();
+    } finally {
+      student['isUpdating'] = false;
     }
   }
 
+  // ─── Session lifecycle ────────────────────────────────────────────────────
+
   Future<void> generateQR() async {
-    if (_isLocationRequired && _selectedRoom == null)
-      throw Exception("Please select a classroom");
+    // ── Offline guard ───────────────────────────────────────────────────────
+    if (!ConnectivityService().isOnline) {
+      throw Exception(
+          'No internet connection. Connect to the network and try again.');
+    }
+
+    if (_isLocationRequired && _selectedRoom == null) {
+      throw Exception('Please select a classroom');
+    }
 
     RoomModel? room;
     if (_selectedRoom != null) {
       try {
         room = _rooms.firstWhere((r) => r.name == _selectedRoom);
-      } catch (e) {
-        // Handle custom room name if needed
-      }
+      } catch (_) {}
     }
 
     final response = await _apiService.generateQr(
@@ -333,101 +305,77 @@ class LiveSessionProvider extends ChangeNotifier {
     );
 
     final session = AttendanceSession.fromJson(response['session']);
-
     _sessionId = session.id;
     _qrValue = response['qrData'] ?? session.qrData;
+    _qrVersion = response['qrVersion'] ?? session.qrVersion;
     _qrActive = true;
     _sessionEnded = false;
     _sessionTimeRemaining = _qrDuration * 60;
     _qrRefreshCountdown = _autoRefreshInterval;
-    _qrVersion = response['qrVersion'] ?? session.qrVersion;
     notifyListeners();
 
-    _startTimers();
+    // Hand off all timer responsibility to the service
+    _timerService?.dispose();
+    _timerService = LiveSessionTimerService(
+      apiService: _apiService,
+      sessionId: _sessionId!,
+      sessionDurationSeconds: _qrDuration * 60,
+      autoRefreshInterval: _autoRefreshInterval,
+      autoRefresh: _autoRefresh,
+      // ── Callbacks: service → provider ──────────────────────────────────
+      onTick: (remaining) {
+        _sessionTimeRemaining = remaining;
+        notifyListeners();
+      },
+      onSessionExpired: () {
+        _qrActive = false;
+        _sessionEnded = true;
+        notifyListeners();
+      },
+      onQrRefreshed: (qrData, version, countdown) {
+        _qrValue = qrData;
+        _qrVersion = version;
+        _qrRefreshCountdown = countdown;
+        notifyListeners();
+      },
+      onAttendancePolled: _applyPolledAttendance,
+    );
+    _timerService!.start();
+
     await _initializeStudents();
   }
 
-  void _startTimers() {
-    _sessionTimer?.cancel();
-    _refreshTimer?.cancel();
-    _attendancePollTimer?.cancel();
-
-    _sessionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_sessionTimeRemaining <= 0) {
-        endSession();
-      } else {
-        _sessionTimeRemaining--;
-        notifyListeners();
+  /// Applies polled attendance updates, skipping students currently being
+  /// manually updated (optimistic-update guard).
+  void _applyPolledAttendance(List<dynamic> polled) {
+    bool updated = false;
+    for (final updated_ in polled) {
+      final isPresent = updated_.status?.toLowerCase() == 'present';
+      final idx = _students.indexWhere((s) => s['id'] == updated_.id);
+      if (idx == -1) continue;
+      if (_students[idx]['isUpdating'] == true) continue;
+      if (_students[idx]['isPresent'] != isPresent) {
+        _students[idx]['isPresent'] = isPresent;
+        updated = true;
       }
-    });
-
-    if (_autoRefresh) {
-      _refreshTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (_qrRefreshCountdown <= 0) {
-          _refreshQR();
-        } else {
-          _qrRefreshCountdown--;
-          notifyListeners();
-        }
-      });
+      if (updated_.markedAt != null &&
+          _students[idx]['markedTime'] != updated_.markedAt) {
+        _students[idx]['markedTime'] = updated_.markedAt!;
+        updated = true;
+      }
     }
-
-    _attendancePollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      _pollAttendance();
-    });
+    if (updated) notifyListeners();
   }
 
-  Future<void> _refreshQR() async {
-    if (_sessionId == null) return;
-    try {
-      final response = await _apiService.refreshQr(_sessionId!);
-      _qrVersion = response['qrVersion'] ?? (_qrVersion + 1);
-      _qrValue = response['qrData'] ?? _qrValue;
-      _qrRefreshCountdown = _autoRefreshInterval;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Failed to refresh QR: $e');
-    }
-  }
-
+  /// Manually triggers a QR refresh (used when [autoRefresh] is false).
   Future<void> regenerateQR() async {
-    if (_autoRefresh || _sessionId == null) return;
-    await _refreshQR();
-  }
-
-  Future<void> _pollAttendance() async {
-    if (_sessionId == null) return;
-    try {
-      final polled = await _apiService.getSessionAttendance(_sessionId!);
-      bool updated = false;
-      for (var updatedStudent in polled) {
-        final isPresent = updatedStudent.status?.toLowerCase() == 'present';
-        final index = _students.indexWhere((s) => s['id'] == updatedStudent.id);
-        if (index != -1) {
-          // Skip if this student is currently being manually updated
-          if (_students[index]['isUpdating'] == true) continue;
-
-          if (_students[index]['isPresent'] != isPresent) {
-            _students[index]['isPresent'] = isPresent;
-            updated = true;
-          }
-          if (updatedStudent.markedAt != null &&
-              _students[index]['markedTime'] != updatedStudent.markedAt) {
-            _students[index]['markedTime'] = updatedStudent.markedAt!;
-            updated = true;
-          }
-        }
-      }
-      if (updated) notifyListeners();
-    } catch (e) {
-      debugPrint('Poll attendance error: $e');
-    }
+    if (_autoRefresh || _timerService == null) return;
+    await _timerService!.forceRefreshQr();
   }
 
   Future<void> endSession() async {
-    _sessionTimer?.cancel();
-    _refreshTimer?.cancel();
-    _attendancePollTimer?.cancel();
+    _timerService?.dispose();
+    _timerService = null;
 
     if (_sessionId != null) {
       try {

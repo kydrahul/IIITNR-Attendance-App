@@ -6,6 +6,7 @@ import '../../../services/api_service.dart';
 import '../../../widgets/cards/course_card.dart';
 import '../course_detail_screen.dart';
 import '../../../models/data_models.dart';
+import '../../../utils/responsive.dart';
 
 class CoursesTab extends StatefulWidget {
   const CoursesTab({super.key});
@@ -34,7 +35,7 @@ class _CoursesTabState extends State<CoursesTab> {
     try {
       // 1. Load from cache first
       final cachedCoursesData = await _apiService.getCourses(forceRefresh: false);
-      if (cachedCoursesData.isNotEmpty) {
+      if (mounted && cachedCoursesData.isNotEmpty) {
         setState(() {
           _courses =
               cachedCoursesData.map((json) => Course.fromJson(json)).toList();
@@ -102,7 +103,7 @@ class _CoursesTabState extends State<CoursesTab> {
         );
       }
     } finally {
-      setState(() => _isJoining = false);
+      if (mounted) setState(() => _isJoining = false);
     }
   }
 
@@ -111,7 +112,10 @@ class _CoursesTabState extends State<CoursesTab> {
     return RefreshIndicator(
       onRefresh: _loadCourses,
       child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        padding: EdgeInsets.symmetric(
+          horizontal: Responsive.horizontalPadding(context),
+          vertical: 24,
+        ),
         children: [
           // Header
           Row(

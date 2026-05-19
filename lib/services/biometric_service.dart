@@ -16,15 +16,20 @@ class BiometricService {
     return isSupported;
   }
 
-  // Check if user has biometrics enrolled (fingerprint/face)
+  // Returns true ONLY when biometrics are actually ENROLLED on the device.
+  // canCheckBiometrics = biometric hardware present (not necessarily enrolled).
+  // getAvailableBiometrics() = list of enrolled biometrics — this is the
+  // correct check to avoid calling authenticate() on a device that has
+  // biometric hardware but no fingerprints/face set up (which causes
+  // authenticate() to silently return false or show a failed prompt).
   Future<bool> checkBiometrics() async {
-    bool canCheckBiometrics = false;
     try {
-      canCheckBiometrics = await auth.canCheckBiometrics;
+      final available = await auth.getAvailableBiometrics();
+      return available.isNotEmpty;
     } on PlatformException catch (e) {
-      debugPrint("Error checking biometrics: $e");
+      debugPrint("Error checking enrolled biometrics: $e");
+      return false;
     }
-    return canCheckBiometrics;
   }
 
   // Static flag to prevent lifecycle loops
@@ -36,13 +41,26 @@ class BiometricService {
     bool authenticated = false;
     try {
       isAuthenticating = true; // Set flag
-      authenticated = await auth.authenticate(
-        localizedReason: 'Please authenticate to access the app',
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          biometricOnly: false,
-        ),
-      );
+      // stickyAuth:false → if the app is backgrounded during auth,
+      // the prompt is dismissed and returns false immediately (no hang).
+      // stickyAuth:true causes an indefinite hang on Android 14 OEM devices
+      // (OnePlus/ColorOS) due to a conflict with the predictive-back API.
+      // The 30-second timeout is an additional safety net.
+      authenticated = await auth
+          .authenticate(
+            localizedReason: 'Please authenticate to access the app',
+            options: const AuthenticationOptions(
+              stickyAuth: false,
+              biometricOnly: false,
+            ),
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              debugPrint('BiometricService: authenticate() timed out — returning false');
+              return false;
+            },
+          );
       if (authenticated) {
         lastAuthTime = DateTime.now();
       }

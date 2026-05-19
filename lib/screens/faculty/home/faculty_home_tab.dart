@@ -87,8 +87,16 @@ class _FacultyHomeTabState extends State<FacultyHomeTab> {
         _apiService.getProfile(forceRefresh: true),
       ]);
 
-      final courses = results[0] as List<Course>;
-      final profile = results[1] as FacultyProfile;
+      final courses = results[0] is List<Course>
+          ? results[0] as List<Course>
+          : (results[0] as List).map((e) => e as Course).toList();
+      final profile = results[1] is FacultyProfile
+          ? results[1] as FacultyProfile
+          : null;
+      if (profile == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
 
       if (mounted) {
         setState(() {

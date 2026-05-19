@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../student/settings/about_screen.dart';
 import '../../student/settings/privacy_screen.dart';
 import '../../student/settings/terms_screen.dart';
+import '../../../utils/snackbar_helper.dart';
 
 class FacultyProfileTab extends StatefulWidget {
   const FacultyProfileTab({super.key});
@@ -22,6 +23,7 @@ class _FacultyProfileTabState extends State<FacultyProfileTab> {
   final AuthService _authService = AuthService();
   FacultyProfile? _facultyProfile;
   bool _isLoading = true;
+  String? _profileError; // set when _fetchProfile fails
 
   int _defaultRadius = 50;
   int _defaultRefreshInterval = 10;
@@ -60,6 +62,7 @@ class _FacultyProfileTabState extends State<FacultyProfileTab> {
   }
 
   Future<void> _fetchProfile() async {
+    if (mounted) setState(() { _isLoading = true; _profileError = null; });
     try {
       final profile = await _apiService.getProfile();
       if (mounted) {
@@ -70,7 +73,12 @@ class _FacultyProfileTabState extends State<FacultyProfileTab> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        const msg = 'Could not load profile. Pull down to retry.';
+        setState(() {
+          _isLoading = false;
+          _profileError = msg;
+        });
+        showErrorSnackbar(context, msg);
       }
     }
   }
@@ -208,6 +216,31 @@ class _FacultyProfileTabState extends State<FacultyProfileTab> {
             style: FacultyTextStyles.h1.copyWith(fontWeight: FontWeight.normal),
           ),
         ),
+        // Profile fetch error banner
+        if (_profileError != null)
+          Container(
+            margin: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFCA5A5)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _profileError!,
+                    style: FacultyTextStyles.bodySmall.copyWith(
+                      color: const Color(0xFFDC2626),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         Expanded(
           child: RefreshIndicator(
             onRefresh: _fetchProfile,
@@ -383,15 +416,24 @@ class _FacultyProfileTabState extends State<FacultyProfileTab> {
                         label: "Logout",
                         labelColor: Colors.red,
                         onTap: () async {
-                          await _apiService.clearCache();
-                          // Clear local settings so they don't leak between users
-                          final prefs = await SharedPreferences.getInstance();
-                          await prefs.remove('default_scan_radius');
-                          await prefs.remove('default_qr_refresh_interval');
-                          await _authService.signOut();
-                          if (context.mounted) {
-                            Navigator.pushNamedAndRemoveUntil(
-                                context, '/login', (route) => false);
+                          try {
+                            await _apiService.clearCache();
+                            // Clear local settings so they don't leak between users
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.remove('default_scan_radius');
+                            await prefs.remove('default_qr_refresh_interval');
+                            await _authService.signOut();
+                            if (context.mounted) {
+                              Navigator.pushNamedAndRemoveUntil(
+                                  context, '/login', (route) => false);
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              showErrorSnackbar(
+                                context,
+                                'Sign-out failed. Please try again.',
+                              );
+                            }
                           }
                         },
                       ),
