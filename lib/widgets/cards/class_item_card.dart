@@ -117,25 +117,6 @@ class ClassItemCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               maxLines: 1),
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _getStatusBg(status),
-                            borderRadius: BorderRadius.circular(100),
-                            border: Border.all(
-                                color: _getStatusBg(status).withOpacity(0.5)),
-                          ),
-                          child: Text(
-                            status,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: _getStatusColor(status),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -174,8 +155,7 @@ class ClassItemCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          if (status == 'Upcoming')
-                            const Icon(LucideIcons.chevronRight,
+                          const Icon(LucideIcons.chevronRight,
                                 size: 16, color: AppColors.gray300),
                         ],
                       ),
