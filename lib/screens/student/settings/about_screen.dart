@@ -48,8 +48,7 @@ class AboutScreen extends StatelessWidget {
                 "Rahul Barma\nHimanshu Deshmukh\nAbhinav Bhagat",
                 LucideIcons.code),
             const SizedBox(height: 16),
-            _buildInfoCard(
-                "Contact", "rahul24102@iiitnr.edu.in", LucideIcons.mail),
+            _buildContactCard(),
             const SizedBox(height: 48),
 
             // Personal project disclaimer
@@ -116,6 +115,63 @@ class AboutScreen extends StatelessWidget {
                 Text(value,
                     style: AppTextStyles.bodyMedium
                         .copyWith(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactCard() {
+
+    const contacts = [
+      {'name': 'Rahul Barma', 'email': 'rahul24102@iiitnr.edu.in'},
+      {'name': 'Himanshu Deshmukh', 'email': 'himanshu24100@iiitnr.edu.in'},
+      {'name': 'Abhinav Bhagat', 'email': 'abhinav24100@iiitnr.edu.in'},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gray100),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(LucideIcons.mail, size: 20, color: AppColors.blue600),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Contact', style: AppTextStyles.label),
+                const SizedBox(height: 8),
+                ...contacts.map((c) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            c['name']!,
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.gray500,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          SelectableText(
+                            c['email']!,
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.blue600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
               ],
             ),
           ),
