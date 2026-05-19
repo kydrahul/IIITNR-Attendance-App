@@ -24,6 +24,28 @@ class _LoginScreenState extends State<LoginScreen> {
   bool get _isLoading => _isStudentLoading || _isFacultyLoading || _isInternLoading;
   String? _errorMessage;
 
+  final TapGestureRecognizer _termsRecognizer1 = TapGestureRecognizer();
+  final TapGestureRecognizer _privacyRecognizer1 = TapGestureRecognizer();
+
+  @override
+  void initState() {
+    super.initState();
+    _termsRecognizer1.onTap = () => Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const TermsAndConditionsScreen()),
+    );
+    _privacyRecognizer1.onTap = () => Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _termsRecognizer1.dispose();
+    _privacyRecognizer1.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleGoogleSignIn() async {
     setState(() {
@@ -35,41 +57,39 @@ class _LoginScreenState extends State<LoginScreen> {
       final userCredential = await _authService.signInWithGoogle();
 
       if (userCredential == null) {
-        setState(() {
-          _isStudentLoading = false;
-        });
+        setState(() => _isStudentLoading = false);
         return;
       }
 
-      // Validate email domain
       final email = userCredential.user?.email ?? '';
-      if (!email.endsWith('@iiitnr.edu.in')) {
+      final localPart = email.split('@').first;
+      final isInstituteEmail = email.endsWith('@iiitnr.edu.in');
+      final hasDigits = RegExp(r'\d').hasMatch(localPart);
+
+      // Students must use institute email with roll number (contains digits)
+      if (!isInstituteEmail || !hasDigits) {
         setState(() {
           _errorMessage =
-              'Only IIITNR students can access this app.\nPlease use your @iiitnr.edu.in email.';
+              'Student login requires your institute email.\nExample: 22cs001@iiitnr.edu.in';
           _isStudentLoading = false;
         });
         await _authService.signOut();
         return;
       }
 
-      // Check if profile exists (bypass cache to verify real DB state)
+      // Check if profile exists
       try {
         final apiService = ApiService();
         await apiService.getProfile(checkProfileExists: true);
-
         await _authService.setUserRole('student');
-        // Profile exists — route to home (HomeScreen will trigger biometric)
         if (mounted) Navigator.pushReplacementNamed(context, '/home');
       } catch (e) {
         if (e.toString().contains('Profile not found')) {
           await _authService.setUserRole('student');
-          // Profile doesn't exist, navigate to profile setup
           if (mounted) {
             Navigator.pushReplacementNamed(context, '/profile-setup');
           }
         } else {
-          // Other error (e.g. 500), show error message
           setState(() {
             _errorMessage =
                 'Login Error: ${e.toString().replaceAll("Exception:", "")}';
@@ -135,6 +155,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleFacultyLogin() async {
+    // Demo/test email allowed as faculty bypass (remove in production)
+    const String _demoFacultyEmail = 'constanium117@gmail.com';
+
     setState(() {
       _isFacultyLoading = true;
       _errorMessage = null;
@@ -144,66 +167,55 @@ class _LoginScreenState extends State<LoginScreen> {
       final userCredential = await _authService.signInWithGoogle();
 
       if (userCredential == null) {
-        setState(() {
-          _isFacultyLoading = false;
-        });
+        setState(() => _isFacultyLoading = false);
         return;
       }
 
-      // TODO: UNCOMMENT FOR PRODUCTION — restrict to @iiitnr.edu.in only
-      // final email = userCredential.user?.email ?? '';
-      // if (!email.endsWith('@iiitnr.edu.in')) {
-      //   setState(() {
-      //     _errorMessage =
-      //         'Only IIITNR faculty can access this app.\nPlease use your @iiitnr.edu.in email.';
-      //     _isFacultyLoading = false;
-      //   });
-      //   await _authService.signOut();
-      //   return;
-      // }
-      // final localPart = email.split('@').first;
-      // final hasNumbers = RegExp(r'\d').hasMatch(localPart);
-      // if (hasNumbers) {
-      //   try {
-      //     final isWhitelisted = await FacultyApiService().verifyFacultyAccess();
-      //     if (!isWhitelisted) {
-      //       setState(() {
-      //         _errorMessage = 'This appears to be a student email.\nFaculty emails don\'t contain numbers.\nContact admin if this is incorrect.';
-      //         _isFacultyLoading = false;
-      //       });
-      //       await _authService.signOut();
-      //       return;
-      //     }
-      //   } catch (e) {
-      //     setState(() {
-      //       _errorMessage = 'Could not verify faculty access. Please try again.';
-      //       _isFacultyLoading = false;
-      //     });
-      //     await _authService.signOut();
-      //     return;
-      //   }
-      // }
+      final email = userCredential.user?.email ?? '';
+      final localPart = email.split('@').first;
+      final isInstituteEmail = email.endsWith('@iiitnr.edu.in');
+      final hasDigits = RegExp(r'\d').hasMatch(localPart);
+      final isDemoAccount = email == _demoFacultyEmail;
+
+      if (!isDemoAccount) {
+        if (!isInstituteEmail) {
+          setState(() {
+            _errorMessage =
+                'Faculty login requires your institute email (@iiitnr.edu.in).';
+            _isFacultyLoading = false;
+          });
+          await _authService.signOut();
+          return;
+        }
+        if (hasDigits) {
+          // Email has digits → looks like a student roll number
+          setState(() {
+            _errorMessage =
+                'This appears to be a student email.\nFaculty emails don\'t contain numbers.';
+            _isFacultyLoading = false;
+          });
+          await _authService.signOut();
+          return;
+        }
+      }
 
       // Check if profile is complete
       bool isProfileComplete = false;
       try {
         final profile = await FacultyApiService().getProfile();
-        if (profile.name.isNotEmpty) {
-          isProfileComplete = true;
-        }
+        if (profile.name.isNotEmpty) isProfileComplete = true;
       } catch (e) {
-        debugPrint(
-            'Faculty profile check failed: $e. Assuming first-time login.');
+        debugPrint('Faculty profile check failed: $e. Assuming first-time login.');
         isProfileComplete = false;
       }
 
       if (mounted) {
         await _authService.setUserRole('faculty');
+        setState(() => _isFacultyLoading = false);
         if (isProfileComplete) {
           Navigator.pushReplacementNamed(context, '/faculty-home');
         } else {
-          Navigator.pushReplacementNamed(
-              context, '/faculty-profile-completion');
+          Navigator.pushReplacementNamed(context, '/faculty-profile-completion');
         }
       }
     } catch (e) {
@@ -439,15 +451,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontWeight: FontWeight.w600,
                       decoration: TextDecoration.underline,
                     ),
-                    recognizer: TapGestureRecognizer()
-                      ..onTap = () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const TermsAndConditionsScreen(),
-                          ),
-                        );
-                      },
+                    recognizer: _termsRecognizer1,
                   ),
                   const TextSpan(text: ' and '),
                   TextSpan(
@@ -457,15 +461,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontWeight: FontWeight.w600,
                       decoration: TextDecoration.underline,
                     ),
-                    recognizer: TapGestureRecognizer()
-                      ..onTap = () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const PrivacyPolicyScreen(),
-                          ),
-                        );
-                      },
+                    recognizer: _privacyRecognizer1,
                   ),
                   const TextSpan(text: ' of your institution.'),
                 ],
