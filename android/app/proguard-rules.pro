@@ -22,3 +22,8 @@
 -keepclassmembers class * implements android.os.Parcelable {
     static ** CREATOR;
 }
+
+# Suppress warnings for Play Core classes (not used since we're not on Play Store)
+# Flutter engine references these but they are not required for APK distribution
+-dontwarn com.google.android.play.core.**
+-dontwarn io.flutter.embedding.engine.deferredcomponents.**
