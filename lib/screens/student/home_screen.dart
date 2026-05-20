@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -61,6 +62,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _runBiometricGate() async {
+    // Web platform does not support local_auth — skip gate entirely.
+    // iOS Safari and desktop browsers fall through to the home screen directly.
+    if (kIsWeb) {
+      if (mounted) setState(() => _isAuthenticated = true);
+      _fetchProfile();
+      return;
+    }
+
     final canCheck = await _biometricService.checkBiometrics();
     if (!canCheck) {
       // No biometric hardware enrolled — skip gate
