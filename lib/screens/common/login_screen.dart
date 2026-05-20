@@ -155,8 +155,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleFacultyLogin() async {
-    // Demo/test email allowed as faculty bypass (remove in production)
-    const String _demoFacultyEmail = 'constanium117@gmail.com';
+    // Emails explicitly allowed as faculty even if they contain digits or
+    // are non-institute accounts (e.g. demo / special faculty accounts).
+    const Set<String> _allowedFacultyEmails = {
+      'constanium117@gmail.com',       // demo / test account
+      'abhinav24100@iiitnr.edu.in',    // faculty with numeric local part
+    };
 
     setState(() {
       _isFacultyLoading = true;
@@ -175,9 +179,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final localPart = email.split('@').first;
       final isInstituteEmail = email.endsWith('@iiitnr.edu.in');
       final hasDigits = RegExp(r'\d').hasMatch(localPart);
-      final isDemoAccount = email == _demoFacultyEmail;
+      final isAllowedFaculty = _allowedFacultyEmails.contains(email);
 
-      if (!isDemoAccount) {
+      if (!isAllowedFaculty) {
         if (!isInstituteEmail) {
           setState(() {
             _errorMessage =
