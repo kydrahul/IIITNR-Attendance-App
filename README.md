@@ -2,7 +2,30 @@
 
 > **A QR-code + Geofence based Smart Attendance System** for DSPM IIIT Naya Raipur — built as a Minor Project.
 
+[![Flutter](https://img.shields.io/badge/Flutter-3.27-02569B?logo=flutter)](https://flutter.dev)
+[![Firebase](https://img.shields.io/badge/Firebase-Firestore%20%2B%20Auth-FFCA28?logo=firebase)](https://firebase.google.com)
+[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
+[![Download APK](https://img.shields.io/badge/Download-APK-green?logo=android)](https://github.com/kydrahul/IIITNR-Attendance-App/releases/latest)
+
 A production-grade, cross-platform Flutter application that serves both **Faculty** (session management) and **Students** (attendance marking) through a single unified codebase.
+
+---
+
+## 📥 Download
+
+| | |
+|---|---|
+| **Android APK** | [⬇️ Download Latest Release](https://github.com/kydrahul/IIITNR-Attendance-App/releases/latest) |
+
+---
+
+## 📄 Research Paper
+
+This project was submitted as a Minor Project at **DSPM IIIT Naya Raipur**.
+
+📑 **[Download Full Research Paper (PDF)](./QR_Geofenced_based_Attendence_System.pdf)**
+
+> *"QR-Code and Geofence Based Attendance System with Anti-Spoofing Mechanisms"* — covers system architecture, security model, verification pipeline, and evaluation results.
 
 ---
 
@@ -199,4 +222,4 @@ See the [backend repository](https://github.com/kydrahul/iiitnrattendance-backen
 
 ---
 
-*Version 1.0.1 · Built with Flutter · © 2025 Rahul Barma*
+*Version 1.0.1 · Built with Flutter · © 2026 Rahul Barma, Himanshu Deshmukh, Abhinav Bhagat*
