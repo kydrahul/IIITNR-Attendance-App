@@ -40,15 +40,18 @@ app.*.map.json
 # Environment variables
 .env*
 
-# Secrets & Android
+# Secrets & Android signing
 .gradle/
 local.properties
 *.jks
 *.keystore
 key.properties
+android/key.properties
+android/release.jks
 
 # Firebase config — contains API keys, never commit
-# Regenerate via: flutterfire configure
+# Regenerate via: dart pub global run flutterfire_cli:flutterfire configure
 # See lib/config/firebase_options.dart.example for the template
+lib/firebase_options.dart
 lib/config/firebase_options.dart
 

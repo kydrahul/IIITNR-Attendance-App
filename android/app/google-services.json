@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "790561423093",
+    "project_id": "iiitnr-attendence-app-f604e",
+    "storage_bucket": "iiitnr-attendence-app-f604e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:790561423093:android:4f360d66a8105db2970fbc",
+        "android_client_info": {
+          "package_name": "in.ac.iiitnr.student_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "790561423093-7e4dtbugjsc96ebtvcagp0lo5il5o5bj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.ac.iiitnr.student_app",
+            "certificate_hash": "c1153fe2a14d091eb3685031b81b1f4e3cae0025"
+          }
+        },
+        {
+          "client_id": "790561423093-nlbpnn31qchafs793uf04i1qnrfteh82.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFTSSUi0kUbKkFfV2KY2ft432ugmJ6lwk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "790561423093-nlbpnn31qchafs793uf04i1qnrfteh82.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "790561423093-p4t6mci11rqgarj1sfj88325bmlq13b4.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "in.ac.iiitnr.studentApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
