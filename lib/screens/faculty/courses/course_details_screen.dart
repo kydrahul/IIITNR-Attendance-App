@@ -374,6 +374,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                         Text('Error: $_errorMessage', style: const TextStyle(color: FacultyColors.red600)),
                         const SizedBox(height: 16),
                         ElevatedButton(onPressed: _fetchCourseData, child: const Text('Retry')),
+                        
                       ],
                     ),
                   )
