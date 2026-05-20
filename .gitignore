@@ -46,4 +46,9 @@ local.properties
 *.jks
 *.keystore
 key.properties
+
+# Firebase config — contains API keys, never commit
+# Regenerate via: flutterfire configure
+# See lib/config/firebase_options.dart.example for the template
+lib/config/firebase_options.dart
 

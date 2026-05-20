@@ -1,44 +1,44 @@
 import 'package:firebase_core/firebase_core.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Firebase configuration.
-// Values are read from --dart-define build flags so they never need to be
-// committed in plaintext.  In CI/CD pass:
+// Firebase configuration — TEMPLATE FILE
+//
+// Copy this file to `firebase_options.dart` and fill in your project values.
+// Find these values in: Firebase Console → Project Settings → General → Your Apps
+//
+// NEVER commit firebase_options.dart — it is gitignored.
+// For CI/CD, pass values as --dart-define flags:
 //   --dart-define=FIREBASE_API_KEY=<value>
 //   --dart-define=FIREBASE_APP_ID=<value>
 //   --dart-define=FIREBASE_MESSAGING_SENDER_ID=<value>
 //   --dart-define=FIREBASE_PROJECT_ID=<value>
 //   --dart-define=FIREBASE_AUTH_DOMAIN=<value>
 //   --dart-define=FIREBASE_STORAGE_BUCKET=<value>
-//
-// For local development without CI, create a `.env.local` or set the flags
-// in your IDE run configuration. The defaultValue below keeps `flutter run`
-// working out-of-the-box for authorised developers who have the project access.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _apiKey = String.fromEnvironment(
   'FIREBASE_API_KEY',
-  defaultValue: 'AIzaSyD1TQ3HK2jRy73WizJsK6AXScQshslHvss',
+  defaultValue: 'YOUR_FIREBASE_API_KEY',
 );
 const _authDomain = String.fromEnvironment(
   'FIREBASE_AUTH_DOMAIN',
-  defaultValue: 'iiitnr-attendence-app-f604e.firebaseapp.com',
+  defaultValue: 'your-project-id.firebaseapp.com',
 );
 const _projectId = String.fromEnvironment(
   'FIREBASE_PROJECT_ID',
-  defaultValue: 'iiitnr-attendence-app-f604e',
+  defaultValue: 'your-project-id',
 );
 const _storageBucket = String.fromEnvironment(
   'FIREBASE_STORAGE_BUCKET',
-  defaultValue: 'iiitnr-attendence-app-f604e.firebasestorage.app',
+  defaultValue: 'your-project-id.firebasestorage.app',
 );
 const _messagingSenderId = String.fromEnvironment(
   'FIREBASE_MESSAGING_SENDER_ID',
-  defaultValue: '790561423093',
+  defaultValue: 'YOUR_MESSAGING_SENDER_ID',
 );
 const _appId = String.fromEnvironment(
   'FIREBASE_APP_ID',
-  defaultValue: '1:790561423093:web:e123a8f7024bf58f970fbc',
+  defaultValue: '1:YOUR_SENDER_ID:web:YOUR_APP_ID',
 );
 
 class DefaultFirebaseOptions {
