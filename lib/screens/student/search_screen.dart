@@ -19,6 +19,8 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Course> _allCourses = [];
   List<Course> _filteredCourses = [];
   bool _isLoading = true;
+  bool _hasError = false;
+  String? _errorMessage;
   String _query = '';
 
   @override
@@ -28,6 +30,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _fetchCourses() async {
+    if (mounted) setState(() { _hasError = false; _errorMessage = null; _isLoading = true; });
     try {
       final rawCourses = await _apiService.getCourses();
       final courses = rawCourses.map((json) => Course.fromJson(json)).toList();
@@ -44,6 +47,8 @@ class _SearchScreenState extends State<SearchScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _hasError = true;
+          _errorMessage = e.toString().replaceAll('Exception: ', '');
         });
       }
     }
@@ -98,7 +103,33 @@ class _SearchScreenState extends State<SearchScreen> {
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _filteredCourses.isEmpty
+                  : _hasError
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(LucideIcons.wifiOff,
+                                    size: 48, color: AppColors.gray400),
+                                const SizedBox(height: 16),
+                                Text(
+                                  _errorMessage ?? 'Failed to load courses',
+                                  textAlign: TextAlign.center,
+                                  style: AppTextStyles.bodyMedium
+                                      .copyWith(color: AppColors.gray500),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
+                                  onPressed: _fetchCourses,
+                                  icon: const Icon(LucideIcons.refreshCw, size: 16),
+                                  label: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : _filteredCourses.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,

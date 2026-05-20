@@ -384,11 +384,12 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
               allCourses: widget.allCourses,
               sessions: _sessions,
               studentCount: _students.length,
+              onAttendanceChanged: _fetchCourseData,
             ),
             _AttendanceTab(
               course: widget.course,
               sessions: _sessions,
-              onAttendanceChanged: _fetchCourseStudents,
+              onAttendanceChanged: _fetchCourseData,
             ),
             _StudentsTab(
               course: widget.course,
@@ -413,12 +414,14 @@ class _OverviewTab extends StatelessWidget {
   final List<Map<String, dynamic>> allCourses;
   final List<dynamic> sessions;
   final int studentCount;
+  final Future<void> Function()? onAttendanceChanged;
 
   const _OverviewTab({
     required this.course,
     required this.allCourses,
     required this.sessions,
     required this.studentCount,
+    this.onAttendanceChanged,
   });
 
   @override

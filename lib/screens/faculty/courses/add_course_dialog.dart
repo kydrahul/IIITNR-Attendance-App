@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../constants/faculty/faculty_text_styles.dart';
@@ -199,7 +200,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
               };
 
         final Map<String, dynamic> res;
-        debugPrint('Creating class with payload: $payload');
+        if (kDebugMode) debugPrint('Creating class with payload: $payload');
         if (widget.editCourse != null) {
           res = await _apiService.updateCourseSchedule(
             courseId: widget.editCourse!.id,
@@ -208,7 +209,7 @@ class _AddCourseDialogState extends State<AddCourseDialog> {
         } else {
           res = await _apiService.createFullClass(payload);
         }
-        debugPrint('Create class response: $res');
+        if (kDebugMode) debugPrint('Create class response: $res');
 
         if (res['success'] == true) {
           newResults.add({

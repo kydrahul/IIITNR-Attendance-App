@@ -298,9 +298,11 @@ class LiveSessionProvider extends ChangeNotifier {
         // 2. Rollback on error
         student['isPresent'] = originalStatus;
         student['isEdited'] = false;
-        notifyListeners();
       } finally {
+        // Always clear isUpdating BEFORE notifying so the UI sees
+        // the final consistent state in a single rebuild.
         student['isUpdating'] = false;
+        notifyListeners();
       }
     } else {
       _expandedStudentRollNo = null;

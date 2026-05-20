@@ -1,7 +1,8 @@
+import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'dart:io';
 
 class DeviceService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -38,8 +39,18 @@ class DeviceService {
       debugPrint('Error generating device ID: $e');
     }
 
-    // Fallback: generate random UUID
-    return 'device_${DateTime.now().millisecondsSinceEpoch}_${DateTime.now().microsecond}';
+    // Fallback: generate a UUID v4 using dart:math
+    final random = Random.secure();
+    String _hex(int n) => random.nextInt(n).toRadixString(16).padLeft(2, '0');
+    final uuid = [
+      List.generate(4, (_) => _hex(256)).join(),
+      List.generate(2, (_) => _hex(256)).join(),
+      '4${_hex(16)}${_hex(256)}',                          // version 4
+      ((random.nextInt(4) + 8).toRadixString(16)) +        // variant
+          List.generate(3, (_) => _hex(256)).join(),
+      List.generate(6, (_) => _hex(256)).join(),
+    ].join('-');
+    return 'device_$uuid';
   }
 
   // Clear device ID (for admin unbinding)

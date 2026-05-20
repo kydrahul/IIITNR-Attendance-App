@@ -17,10 +17,29 @@ class _SplashScreenState extends State<SplashScreen> {
   final AuthService _authService = AuthService();
   final ApiService _apiService = ApiService();
 
+  // Keep references so we can dispose them properly
+  final TapGestureRecognizer _termsTap = TapGestureRecognizer();
+  final TapGestureRecognizer _privacyTap = TapGestureRecognizer();
+
   @override
   void initState() {
     super.initState();
+    _termsTap.onTap = () => Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const TermsAndConditionsScreen()),
+    );
+    _privacyTap.onTap = () => Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
+    );
     _checkAuthAndNavigate();
+  }
+
+  @override
+  void dispose() {
+    _termsTap.dispose();
+    _privacyTap.dispose();
+    super.dispose();
   }
 
   Future<void> _checkAuthAndNavigate() async {
@@ -185,15 +204,7 @@ class _SplashScreenState extends State<SplashScreen> {
                           decoration: TextDecoration.underline,
                           fontSize: 12,
                         ),
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const TermsAndConditionsScreen(),
-                              ),
-                            );
-                          },
+                        recognizer: _termsTap,
                       ),
                       const TextSpan(text: ' & '),
                       TextSpan(
@@ -204,15 +215,7 @@ class _SplashScreenState extends State<SplashScreen> {
                           decoration: TextDecoration.underline,
                           fontSize: 12,
                         ),
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const PrivacyPolicyScreen(),
-                              ),
-                            );
-                          },
+                        recognizer: _privacyTap,
                       ),
                     ],
                   ),
